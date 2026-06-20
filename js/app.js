@@ -176,6 +176,16 @@ function renderWork() {
 
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
 
+  // Summary due-row checkboxes
+  document.querySelectorAll('[data-summary-check]').forEach(el => {
+    el.onclick = () => {
+      const t = DB.get('tasks').find(x => x.id === el.dataset.summaryCheck);
+      if (!t) return;
+      DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
+      render();
+    };
+  });
+
   // Task checkboxes
   document.querySelectorAll('[data-check-id]').forEach(el => {
     el.onclick = () => {
@@ -247,6 +257,33 @@ function renderWork() {
       if (e.key === 'Enter') quickAddTask(input.dataset.quickAdd, input);
     });
   });
+
+  // ── Drag-and-drop tasks between project cards ──
+  let _draggedTaskId = null;
+  document.querySelectorAll('[data-task-id]').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      _draggedTaskId = row.dataset.taskId;
+      setTimeout(() => row.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', () => row.classList.remove('dragging'));
+  });
+  document.querySelectorAll('.project-expanded-card').forEach(card => {
+    card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
+    card.addEventListener('dragleave', e => {
+      if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      if (!_draggedTaskId) return;
+      const titleEl = card.querySelector('[data-open-project]');
+      if (!titleEl) return;
+      DB.update('tasks', _draggedTaskId, { projectId: titleEl.dataset.openProject });
+      _draggedTaskId = null;
+      render();
+    });
+  });
 }
 
 function workSummaryHTML(projects, allTasks) {
@@ -277,6 +314,7 @@ function workSummaryHTML(projects, allTasks) {
           const proj = projects.find(p => p.id === t.projectId);
           const color = proj ? (proj.color || '#6366F1') : '#6366F1';
           return `<div class="summary-due-row">
+            <div class="summary-check" data-summary-check="${t.id}" title="Mark done"></div>
             <span class="summary-due-dot" style="background:${escHtml(color)}"></span>
             <span class="summary-due-name">${escHtml(t.title)}</span>
             <span class="summary-due-project">${proj ? escHtml(proj.name) : ''}</span>
@@ -364,12 +402,13 @@ function expandedProjectCard(p, allTasks) {
 function workTaskRow(t) {
   const due = fmt.dueLabel(t.dueDate);
   return `
-    <div class="task-row">
+    <div class="task-row" draggable="true" data-task-id="${t.id}">
       <div class="task-check" data-check-id="${t.id}"></div>
       <div class="task-body">
         <div class="task-name">${escHtml(t.title)}</div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
       </div>
+      ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
       <div class="task-actions">
         <button class="task-action-btn" data-edit-task="${t.id}" title="Edit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -862,7 +901,7 @@ function markChoreDone(id) {
 
 // ─── MINI CALENDAR HELPER ────────────────────────────────────────
 
-function miniCalendar(history, month, year) {
+function miniCalendar(history, month, year, choreId) {
   const today       = new Date();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay    = new Date(year, month, 1).getDay();
@@ -875,13 +914,20 @@ function miniCalendar(history, month, year) {
     if (d.getMonth() === month && d.getFullYear() === year) doneDays.add(d.getDate());
   });
 
+  const isFuture = (year > today.getFullYear()) || (year === today.getFullYear() && month > today.getMonth());
+
   const labels = ['S','M','T','W','T','F','S'].map(l => `<div class="mini-cal-label">${l}</div>`).join('');
   const blanks  = Array(firstDay).fill('<div class="mini-cal-day empty"></div>').join('');
   const days    = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const done    = doneDays.has(d);
     const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    days.push(`<div class="mini-cal-day${done ? ' done' : ''}${isToday ? ' today' : ''}">${d}</div>`);
+    const isFutureDay = isFuture || (year === today.getFullYear() && month === today.getMonth() && d > today.getDate());
+    const interactive = choreId && !isFutureDay;
+    const attrs = interactive
+      ? ` class="mini-cal-day retro-clickable${done ? ' done' : ''}${isToday ? ' today' : ''}" data-retro-chore="${choreId}" data-retro-day="${d}" data-retro-month="${month}" data-retro-year="${year}" data-retro-done="${done ? '1' : '0'}" title="${done ? 'Click to remove this date' : 'Click to log as done'}"`
+      : ` class="mini-cal-day${done ? ' done' : ''}${isToday ? ' today' : ''}"`;
+    days.push(`<div${attrs}>${d}</div>`);
   }
 
   return `
@@ -948,13 +994,15 @@ function renderChoreDetail() {
         <div class="page-title">${escHtml(chore.emoji || '🔧')} ${escHtml(chore.title)}</div>
         <div class="page-subtitle">Repeats ${intervalLabel}</div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center">
         <button class="task-action-btn" id="edit-chore-btn" title="Edit">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
+        ${chore.timerMinutes ? `<button class="timer-btn start" id="chore-timer-btn">⏱ ${chore.timerMinutes}min Timer</button>` : ''}
         <button class="chore-done-btn" id="chore-done-now" style="padding:8px 18px;font-size:.875rem">✓ Mark Done</button>
       </div>
     </div>
+    ${chore.timerMinutes ? '<div id="chore-timer-display" style="display:none"></div>' : ''}
 
     <!-- Stats -->
     <div class="stats-row">
@@ -1022,7 +1070,7 @@ function renderChoreDetail() {
             let m = now2.getMonth() - i;
             let y = now2.getFullYear();
             if (m < 0) { m += 12; y--; }
-            results.push(miniCalendar(history, m, y));
+            results.push(miniCalendar(history, m, y, chore.id));
           }
           return results.join('');
         })()}
@@ -1063,13 +1111,110 @@ function renderChoreDetail() {
 
   document.getElementById('chore-done-now').onclick = () => {
     markChoreDone(state.activeChore);
-    renderChoreDetail(); // refresh in-place
+    renderChoreDetail();
   };
 
   document.getElementById('edit-chore-btn').onclick = () => {
     const c = DB.get('chores').find(x => x.id === state.activeChore);
     if (c) openChoreModal(c);
   };
+
+  // Timer wiring
+  if (chore.timerMinutes) {
+    const timerBtn  = document.getElementById('chore-timer-btn');
+    const timerDisp = document.getElementById('chore-timer-display');
+    let _timerInterval = null;
+    let _timerRemaining = 0;
+
+    const fmtTime = s => {
+      const m = Math.floor(s / 60), sec = s % 60;
+      return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    };
+
+    const stopTimer = () => {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+      timerBtn.textContent = `⏱ ${chore.timerMinutes}min Timer`;
+      timerBtn.classList.add('start');
+      timerDisp.style.display = 'none';
+    };
+
+    const ringTimer = () => {
+      stopTimer();
+      // Web Audio beep
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.4, 0.8].forEach(t => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.35);
+          osc.start(ctx.currentTime + t);
+          osc.stop(ctx.currentTime + t + 0.35);
+        });
+      } catch(e) {}
+      timerDisp.style.display = 'flex';
+      timerDisp.innerHTML = `<div class="timer-display"><span class="timer-clock" style="color:var(--green)">✓ Done!</span><button class="timer-btn" id="timer-dismiss">Dismiss</button></div>`;
+      document.getElementById('timer-dismiss').onclick = stopTimer;
+    };
+
+    const startTimer = () => {
+      _timerRemaining = chore.timerMinutes * 60;
+      timerBtn.textContent = 'Stop';
+      timerBtn.classList.remove('start');
+      timerDisp.style.display = 'block';
+      const update = () => {
+        if (_timerRemaining <= 0) { ringTimer(); return; }
+        const urgent = _timerRemaining <= 60;
+        timerDisp.innerHTML = `<div class="timer-display">
+          <span class="timer-clock${urgent ? ' urgent' : ''}">${fmtTime(_timerRemaining)}</span>
+          <div class="timer-controls">
+            <button class="timer-btn" id="timer-stop-btn">Stop</button>
+          </div>
+        </div>`;
+        document.getElementById('timer-stop-btn').onclick = stopTimer;
+        _timerRemaining--;
+      };
+      update();
+      _timerInterval = setInterval(update, 1000);
+    };
+
+    timerBtn.onclick = () => {
+      if (_timerInterval) stopTimer();
+      else startTimer();
+    };
+  }
+
+  // Retrospective calendar: click a day to add/remove from history
+  document.querySelectorAll('[data-retro-chore]').forEach(cell => {
+    cell.onclick = () => {
+      const id    = cell.dataset.retroChore;
+      const day   = parseInt(cell.dataset.retroDay);
+      const month = parseInt(cell.dataset.retroMonth);
+      const year  = parseInt(cell.dataset.retroYear);
+      const isDone = cell.dataset.retroDone === '1';
+      const c = DB.get('chores').find(x => x.id === id);
+      if (!c) return;
+      const history = c.history ? [...c.history] : [];
+      if (isDone) {
+        // Remove all entries that match this calendar day
+        const filtered = history.filter(ts => {
+          const d = new Date(ts);
+          return !(d.getDate() === day && d.getMonth() === month && d.getFullYear() === year);
+        });
+        const newLastDone = filtered.length ? Math.max(...filtered) : null;
+        DB.update('chores', id, { history: filtered, lastDone: newLastDone });
+      } else {
+        // Add noon of that day
+        const ts = new Date(year, month, day, 12, 0, 0).getTime();
+        const updated = [...history, ts].sort((a, b) => b - a);
+        DB.update('chores', id, { history: updated, lastDone: updated[0] });
+      }
+      renderChoreDetail();
+    };
+  });
 }
 
 // ─── REPORTS ─────────────────────────────────────────────────────
@@ -1201,6 +1346,7 @@ function openModal(title, bodyHtml) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-body').innerHTML = bodyHtml;
   document.getElementById('modal-backdrop').classList.add('open');
+  document.getElementById('modal-close').onclick = closeModal; // re-wire every time
 }
 
 function closeModal() {
@@ -1281,6 +1427,13 @@ function openTaskModal(project, existing) {
       <label class="form-label">Due date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
       <input class="form-input" id="task-due" type="date" value="${existing?.dueDate || ''}" />
     </div>
+    <div class="form-group">
+      <label class="form-label">Tag</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:400;">
+        <input type="checkbox" id="task-followup" ${existing?.tag === 'follow-up' ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
+        <span>↩ Mark as follow-up</span>
+      </label>
+    </div>
     <div class="form-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-save">${isEdit ? 'Save changes' : 'Add task'}</button>
@@ -1291,9 +1444,10 @@ function openTaskModal(project, existing) {
   document.getElementById('modal-save').onclick = () => {
     const title   = document.getElementById('task-name').value.trim();
     const dueDate = document.getElementById('task-due').value || null;
+    const tag     = document.getElementById('task-followup').checked ? 'follow-up' : null;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, tag });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, tag, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
@@ -1349,6 +1503,7 @@ function openChoreModal(existing) {
     (e === currentEmoji ? 'outline:2px solid var(--accent);outline-offset:2px;' : '') + '">' + e + '</div>'
   ).join('');
 
+  const timerVal = existing?.timerMinutes || '';
   openModal(isEdit ? 'Edit Chore' : 'New Chore',
     '<div class="form-group">' +
     '<label class="form-label">Chore name</label>' +
@@ -1362,6 +1517,12 @@ function openChoreModal(existing) {
     '<option value="days"' + (displayUnit === 'days' ? ' selected' : '') + '>days</option>' +
     '<option value="weeks"' + (displayUnit === 'weeks' ? ' selected' : '') + '>weeks</option>' +
     '</select></div></div>' +
+    '<div class="form-group">' +
+    '<label class="form-label">Timer <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional — e.g. 10 for 10-minute timer)</span></label>' +
+    '<div class="interval-row">' +
+    '<input class="form-input" id="chore-timer" type="number" min="1" max="120" value="' + timerVal + '" placeholder="mins" style="max-width:90px" />' +
+    '<span style="font-size:.85rem;color:var(--text-3);align-self:center">minutes</span>' +
+    '</div></div>' +
     '<div class="form-group">' +
     '<label class="form-label">Icon</label>' +
     '<div class="color-picker" style="flex-wrap:wrap;gap:8px">' + emojiDots + '</div>' +
@@ -1388,11 +1549,13 @@ function openChoreModal(existing) {
     const rawNum       = parseInt(document.getElementById('chore-interval').value) || 7;
     const unit         = document.getElementById('chore-unit').value;
     const intervalDays = unit === 'weeks' ? rawNum * 7 : rawNum;
+    const timerRaw     = parseInt(document.getElementById('chore-timer').value);
+    const timerMinutes = timerRaw > 0 ? timerRaw : null;
     if (!title) { document.getElementById('chore-name').focus(); return; }
     if (isEdit) {
-      DB.update('chores', existing.id, { title, intervalDays, emoji: pickedEmoji });
+      DB.update('chores', existing.id, { title, intervalDays, emoji: pickedEmoji, timerMinutes });
     } else {
-      DB.add('chores', { id: uid(), title, emoji: pickedEmoji, intervalDays, lastDone: null, history: [], createdAt: Date.now() });
+      DB.add('chores', { id: uid(), title, emoji: pickedEmoji, intervalDays, timerMinutes, lastDone: null, history: [], createdAt: Date.now() });
     }
     closeModal();
     if (state.activeChore) renderChoreDetail();
