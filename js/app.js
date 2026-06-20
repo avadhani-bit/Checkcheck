@@ -121,6 +121,8 @@ const state = {
   personalTab:   'todo',     // 'todo' | 'shopping' | 'chores'
   reportMonth:   new Date().getMonth(),
   reportYear:    new Date().getFullYear(),
+  projectMonth:  new Date().getMonth(),
+  projectYear:   new Date().getFullYear(),
 };
 
 // ─── RENDER ───────────────────────────────────────────────────────
@@ -168,7 +170,7 @@ function renderWork() {
 
     ${projects.length === 0
       ? `<div class="empty-state"><div class="empty-state-icon">📁</div><p>No projects yet.<br>Hit <strong>New Project</strong> to get started.</p></div>`
-      : projects.map(p => expandedProjectCard(p, allTasks)).join('')}
+      : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>`}
   `;
 
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
@@ -205,7 +207,9 @@ function renderWork() {
   document.querySelectorAll('[data-open-project]').forEach(el => {
     el.onclick = e => {
       e.stopPropagation();
-      state.activeProject = el.dataset.openProject;
+      state.activeProject  = el.dataset.openProject;
+      state.projectMonth   = new Date().getMonth();
+      state.projectYear    = new Date().getFullYear();
       render();
     };
   });
@@ -287,9 +291,6 @@ function expandedProjectCard(p, allTasks) {
           <input class="inline-add-input" data-quick-add="${p.id}" placeholder="Quick add…" />
           <button class="inline-add-btn" data-quick-add-btn="${p.id}">Add</button>
         </div>
-        ${completed.length > 0
-          ? `<button class="completed-link" data-open-project="${p.id}">Completed (${completed.length}) →</button>`
-          : ''}
       </div>
     </div>
   `;
@@ -322,11 +323,24 @@ function renderProjectCompleted() {
   const p = DB.get('projects').find(x => x.id === state.activeProject);
   if (!p) { state.activeProject = null; return renderWork(); }
 
-  const completed = DB.get('tasks')
-    .filter(t => t.projectId === p.id && t.done)
+  const all    = DB.get('tasks').filter(t => t.projectId === p.id);
+  const active = all.filter(t => !t.done);
+  const color  = p.color || '#6366F1';
+
+  const month     = state.projectMonth;
+  const year      = state.projectYear;
+  const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const completed = all
+    .filter(t => {
+      if (!t.done || !t.completedAt) return false;
+      const d = new Date(t.completedAt);
+      return d.getMonth() === month && d.getFullYear() === year;
+    })
     .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
 
-  const color = p.color || '#6366F1';
+  const now = new Date();
+  const isCurrent = month === now.getMonth() && year === now.getFullYear();
 
   main().innerHTML = `
     <button class="back-btn" id="btn-back">
@@ -340,41 +354,111 @@ function renderProjectCompleted() {
           <span class="project-color-pill" style="background:${escHtml(color)}"></span>
           <div class="page-title">${escHtml(p.name)}</div>
         </div>
-        <div class="page-subtitle">Completed tasks</div>
+        <div class="page-subtitle">${active.length} open · ${completed.length} completed in ${monthName}</div>
       </div>
-      <button class="add-btn" id="btn-add-task">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-        Add Task
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="task-action-btn" id="btn-edit-proj" title="Edit project">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="add-btn" id="btn-add-task">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add Task
+        </button>
+      </div>
+    </div>
+
+    <div class="month-nav" style="margin-bottom:20px">
+      <button class="month-nav-btn" id="prev-month">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <span class="month-label">${monthName}</span>
+      <button class="month-nav-btn" id="next-month" ${isCurrent ? 'disabled' : ''}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>
     </div>
 
+    <!-- Open tasks -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">Open tasks (${active.length})</span></div>
+      <div class="task-list" id="active-list">
+        ${active.length === 0
+          ? '<div class="empty-state" style="padding:24px 20px"><p>🎉 All tasks done!</p></div>'
+          : active.map(t => workTaskRow(t)).join('')}
+      </div>
+      <div class="inline-add">
+        <input class="inline-add-input" id="quick-add-input" placeholder="Quick add task…" />
+        <button class="inline-add-btn" id="quick-add-btn">Add</button>
+      </div>
+    </div>
+
+    <!-- Completed this month -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Completed (${completed.length})</span>
+        <span class="card-title">Completed in ${monthName} (${completed.length})</span>
       </div>
       <div class="task-list">
         ${completed.length === 0
-          ? `<div class="empty-state" style="padding:32px 20px"><p>No completed tasks yet.</p></div>`
+          ? '<div class="empty-state" style="padding:24px 20px;font-size:.875rem;color:var(--text-3)">No tasks completed in ' + monthName + '.</div>'
           : completed.map(completedTaskRow).join('')}
       </div>
     </div>
   `;
 
-  document.getElementById('btn-back').onclick = () => { state.activeProject = null; render(); };
+  document.getElementById('btn-back').onclick    = () => { state.activeProject = null; render(); };
   document.getElementById('btn-add-task').onclick = () => openTaskModal(p);
+  document.getElementById('btn-edit-proj').onclick = () => openProjectModal(p);
 
-  // Un-check (move back to active)
-  document.querySelectorAll('[data-uncheck-id]').forEach(el => {
+  document.getElementById('prev-month').onclick = () => {
+    if (state.projectMonth === 0) { state.projectMonth = 11; state.projectYear--; }
+    else state.projectMonth--;
+    renderProjectCompleted();
+  };
+  document.getElementById('next-month').onclick = () => {
+    if (state.projectMonth === 11) { state.projectMonth = 0; state.projectYear++; }
+    else state.projectMonth++;
+    renderProjectCompleted();
+  };
+
+  // Quick add
+  const qInput = document.getElementById('quick-add-input');
+  const qBtn   = document.getElementById('quick-add-btn');
+  const doQuickAdd = () => {
+    const title = qInput.value.trim();
+    if (!title) return;
+    DB.add('tasks', { id: uid(), projectId: p.id, title, done: false, dueDate: null, completedAt: null, createdAt: Date.now() });
+    qInput.value = '';
+    renderProjectCompleted();
+  };
+  qBtn.onclick = doQuickAdd;
+  qInput.addEventListener('keydown', e => { if (e.key === 'Enter') doQuickAdd(); });
+
+  // Active task check / edit / delete
+  document.querySelectorAll('[data-check-id]').forEach(el => {
     el.onclick = () => {
-      DB.update('tasks', el.dataset.uncheckId, { done: false, completedAt: null });
-      render();
+      const t = DB.get('tasks').find(x => x.id === el.dataset.checkId);
+      if (!t) return;
+      DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
+      renderProjectCompleted();
+    };
+  });
+  document.querySelectorAll('[data-edit-task]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      const task = DB.get('tasks').find(t => t.id === el.dataset.editTask);
+      if (task) openTaskModal(null, task);
+    };
+  });
+  document.querySelectorAll('[data-delete-task]').forEach(el => {
+    el.onclick = () => {
+      if (confirm('Delete this task?')) { DB.remove('tasks', el.dataset.deleteTask); renderProjectCompleted(); }
     };
   });
 
-  // Delete completed task
-  document.querySelectorAll('[data-delete-task]').forEach(el => {
+  // Un-check completed → move back to active
+  document.querySelectorAll('[data-uncheck-id]').forEach(el => {
     el.onclick = () => {
-      if (confirm('Delete this task?')) { DB.remove('tasks', el.dataset.deleteTask); render(); }
+      DB.update('tasks', el.dataset.uncheckId, { done: false, completedAt: null });
+      renderProjectCompleted();
     };
   });
 }
@@ -511,6 +595,9 @@ function todoRow(t) {
         <div class="task-name">${escHtml(t.title)}</div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
       </div>
+      ${t.done && t.completedAt
+        ? `<div class="task-done-date">${fmt.dateShort(t.completedAt)}</div>`
+        : ''}
       <div class="task-actions">
         <button class="task-action-btn" data-todo-edit="${t.id}" title="Edit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -660,18 +747,21 @@ function renderChoresPanel() {
 function choreStatus(c) {
   if (!c.lastDone) return { key: 'never', text: 'Never done — tap to mark done', cls: 'never' };
   const daysSince = (Date.now() - c.lastDone) / 86400000;
+  const daysOver  = daysSince - c.intervalDays;
   const pct       = daysSince / c.intervalDays;
-  if (pct >= 1) {
-    const over = Math.round(daysSince - c.intervalDays);
-    return { key: 'overdue', text: `Overdue by ${over} day${over !== 1 ? 's' : ''} — last done ${fmt.relativeDay(c.lastDone)}`, cls: 'overdue' };
+  const rel       = fmt.relativeDay(c.lastDone);
+  if (daysOver >= 5) return { key: 'overdue', cls: 'overdue', text: `${Math.round(daysOver)} days overdue — last done ${rel}` };
+  if (daysOver >= 1) {
+    const d = Math.round(daysOver);
+    return { key: 'late', cls: 'late', text: `${d} day${d !== 1 ? 's' : ''} overdue — last done ${rel}` };
   }
-  if (pct >= 0.75) return { key: 'soon',    text: `Due soon — last done ${fmt.relativeDay(c.lastDone)}`, cls: 'soon' };
-  return { key: 'ok', text: `Last done ${fmt.relativeDay(c.lastDone)}`, cls: 'ok' };
+  if (pct >= 0.75) return { key: 'soon', cls: 'soon', text: `Due soon — last done ${rel}` };
+  return { key: 'ok', cls: 'ok', text: `Last done ${rel}` };
 }
 
 function choreListRow(c) {
   const status = c._status || choreStatus(c);
-  const colors = { overdue: '#FEE2E2', soon: '#FEF9C3', ok: '#D1FAE5', never: '#F3F4F6' };
+  const colors = { overdue: '#FEE2E2', late: '#FFEDD5', soon: '#FEF9C3', ok: '#D1FAE5', never: '#F3F4F6' };
   const bg     = colors[status.key] || colors.never;
 
   return `
@@ -702,6 +792,39 @@ function markChoreDone(id) {
     ? chore.history
     : (chore.lastDone ? [chore.lastDone] : []);
   DB.update('chores', id, { lastDone: Date.now(), history: [...existing, Date.now()] });
+}
+
+
+// ─── MINI CALENDAR HELPER ────────────────────────────────────────
+
+function miniCalendar(history, month, year) {
+  const today       = new Date();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay    = new Date(year, month, 1).getDay();
+  const monthName   = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Build a set of done-days for this month
+  const doneDays = new Set();
+  (history || []).forEach(ts => {
+    const d = new Date(ts);
+    if (d.getMonth() === month && d.getFullYear() === year) doneDays.add(d.getDate());
+  });
+
+  const labels = ['S','M','T','W','T','F','S'].map(l => `<div class="mini-cal-label">${l}</div>`).join('');
+  const blanks  = Array(firstDay).fill('<div class="mini-cal-day empty"></div>').join('');
+  const days    = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const done    = doneDays.has(d);
+    const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    days.push(`<div class="mini-cal-day${done ? ' done' : ''}${isToday ? ' today' : ''}">${d}</div>`);
+  }
+
+  return `
+    <div class="mini-calendar">
+      <div class="mini-cal-month">${monthName}</div>
+      <div class="mini-cal-grid">${labels}${blanks}${days.join('')}</div>
+    </div>
+  `;
 }
 
 // ─── CHORE DETAIL / HISTORY ───────────────────────────────────────
@@ -822,6 +945,24 @@ function renderChoreDetail() {
         </div>
       `;
     })() : ''}
+
+    <!-- Completion calendar (last 2 months) -->
+    <div class="card" style="padding:20px;">
+      <div style="font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:16px">Completion calendar</div>
+      <div class="mini-cal-pair">
+        ${(() => {
+          const now2 = new Date();
+          const results = [];
+          for (let i = 1; i >= 0; i--) {
+            let m = now2.getMonth() - i;
+            let y = now2.getFullYear();
+            if (m < 0) { m += 12; y--; }
+            results.push(miniCalendar(history, m, y));
+          }
+          return results.join('');
+        })()}
+      </div>
+    </div>
 
     <!-- History list -->
     <div class="card">

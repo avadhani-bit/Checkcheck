@@ -1038,88 +1038,96 @@ body.dark .form-input {
   color: var(--text-1);
 }
 
-body.dark .form-input::placeholder { color: var(--text-3); }
 
-body.dark .inline-add-input {
-  background: #334155;
-  border-color: #475569;
-  color: var(--text-1);
+/* ─── BOARD LAYOUT (Work view desktop) ─── */
+.project-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  align-items: start;
 }
 
-body.dark .cal-day[data-count="0"] { background: #1E293B; }
+/* ─── CHORE LATE (orange) ─── */
+.chore-status.late { color: #F97316; font-weight: 500; }
 
-/* ─── EXPANDED PROJECT CARDS (Work view) ─── */
-.project-expanded-card {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-
-.project-expanded-card::before {
-  content: '';
-  display: block;
-  height: 3px;
-  background: var(--project-color, var(--accent));
-}
-
-.project-expanded-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px 10px;
-  gap: 12px;
-}
-
-.project-expanded-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.project-color-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.project-expanded-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-1);
-  cursor: pointer;
-  letter-spacing: -0.01em;
+/* ─── TODO DONE DATE ─── */
+.task-done-date {
+  font-size: 0.75rem;
+  color: var(--text-3);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color var(--transition);
-}
-
-.project-expanded-name:hover { color: var(--accent); }
-
-.project-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   flex-shrink: 0;
+  margin-right: 4px;
 }
 
-.add-task-btn {
+/* ─── MINI CALENDAR (chore detail) ─── */
+.mini-cal-pair {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.mini-calendar {
+  flex: 1;
+  min-width: 180px;
+}
+
+.mini-cal-month {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+
+.mini-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.mini-cal-label {
+  font-size: .62rem;
+  font-weight: 700;
+  color: var(--text-3);
+  text-align: center;
+  padding-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.mini-cal-day {
+  aspect-ratio: 1;
+  border-radius: 4px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  justify-content: center;
+  font-size: .7rem;
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+
+.mini-cal-day.empty { background: none; }
+
+.mini-cal-day.done {
+  background: #10B981;
+  color: white;
+  font-weight: 700;
+}
+
+.mini-cal-day.today {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
   color: var(--accent);
-  background: var(--accent-light);
-  border-radius: 6px;
-  transition: all var(--transition);
-  white-space: nowrap;
+  font-weight: 600;
+}
+
+.mini-cal-day.done.today {
+  color: white;
+}
+
+@media (max-width: 600px) {
+  .project-board { grid-template-columns: 1fr; gap: 16px; }
+  .mini-cal-pair  { gap: 16px; }
+}
+e-space: nowrap;
 }
 
 .add-task-btn:hover { background: var(--accent); color: white; }
