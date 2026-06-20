@@ -966,7 +966,6 @@ function showToast(msg) {
 }
 
 // ══ DATE UTILS ════════════════════════════════════════════
-function today()  { return new Date().toISOString().slice(0,10); }
 function monthKey(offset) {
   const d = new Date();
   d.setMonth(d.getMonth() + offset);
