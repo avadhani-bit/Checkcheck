@@ -2,64 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>CheckCheck</title>
-  <link rel="stylesheet" href="css/variables.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/cards.css" />
-  <link rel="stylesheet" href="css/mobile.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
 
-  <div class="app">
+  <!-- App shell -->
+  <div id="app">
 
-    <!-- Sidebar (desktop) -->
-    <aside class="sidebar">
-      <div class="logo">✓✓ <span>Check</span>check</div>
-      <nav>
-        <button class="nav-item active" data-page="today">
-          <span class="nav-icon">☀️</span> Today
-        </button>
-        <button class="nav-item" data-page="work">
-          <span class="nav-icon">💼</span> Work
-        </button>
-        <button class="nav-item" data-page="personal">
-          <span class="nav-icon">🏠</span> Personal
-        </button>
-        <button class="nav-item" data-page="reports">
-          <span class="nav-icon">📊</span> Reports
-        </button>
-      </nav>
-    </aside>
+    <!-- Header -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="logo">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect width="28" height="28" rx="8" fill="var(--accent)"/>
+            <path d="M7 14l4.5 4.5L21 9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>CheckCheck</span>
+        </div>
 
-    <!-- Main content -->
-    <main class="content">
-      <div id="page-container"></div>
-    </main>
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="work">Work</button>
+          <button class="mode-btn" data-mode="personal">Personal</button>
+          <div class="mode-slider"></div>
+        </div>
+
+        <button class="reports-btn" id="reports-btn" title="Reports">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+          </svg>
+          <span>Reports</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="main" id="main-content"></main>
 
   </div>
 
-  <!-- Bottom nav (mobile) -->
-  <nav class="bottom-nav">
-    <button class="active" data-page="today">
-      <span class="nav-icon">☀️</span>
-      Today
-    </button>
-    <button data-page="work">
-      <span class="nav-icon">💼</span>
-      Work
-    </button>
-    <button data-page="personal">
-      <span class="nav-icon">🏠</span>
-      Personal
-    </button>
-    <button data-page="reports">
-      <span class="nav-icon">📊</span>
-      Reports
-    </button>
-  </nav>
+  <!-- Modal backdrop -->
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-title">Add</h2>
+        <button class="modal-close" id="modal-close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
 
-  <script type="module" src="js/app.js"></script>
+  <script src="js/app.js"></script>
 
 </body>
 </html>
