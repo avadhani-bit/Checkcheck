@@ -465,13 +465,14 @@ textarea.sheet-input{resize:none;line-height:1.5;}
 /* ══ DESKTOP SIDEBAR ══════════════════════════════════════ */
 .app {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   height: 100dvh;
-  max-width: none;
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 .sidebar {
-  display: none;
+  display: none; /* hidden always on mobile */
   width: 220px;
   flex-shrink: 0;
   background: var(--s1);
@@ -555,6 +556,14 @@ textarea.sheet-input{resize:none;line-height:1.5;}
   position: relative;
 }
 
+.main-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
 /* ── GREETING ACTIONS ── */
 .greet-actions { display: flex; gap: 8px; align-items: flex-start; margin-top: 2px; }
 .pill-btn-ghost {
@@ -617,7 +626,15 @@ textarea.sheet-input{resize:none;line-height:1.5;}
 @media (min-width: 768px) {
   body { overflow: hidden; }
 
+  .app {
+    flex-direction: row;
+    max-width: none;
+    margin: 0;
+    height: 100dvh;
+  }
+
   .sidebar { display: flex; }
+  .main-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
   /* Hide mobile topbar and tabs on desktop */
   .topbar { display: none; }
@@ -627,25 +644,18 @@ textarea.sheet-input{resize:none;line-height:1.5;}
   #sub-shopping,
   #sub-todo,
   #sub-chores { display: block !important; }
-  #sub-todo { margin-top: 0; }
-  #sub-chores { margin-top: 0; }
 
   /* Add section labels on desktop */
   #sub-shopping::before { content: 'Shopping'; display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); padding: 16px 16px 6px; }
-  #sub-todo::before { content: 'To-do'; display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); padding: 16px 16px 6px; }
-  #sub-chores::before { content: 'Chores'; display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); padding: 16px 16px 6px; }
+  #sub-todo::before     { content: 'To-do';    display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); padding: 16px 16px 6px; }
+  #sub-chores::before   { content: 'Chores';   display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--t3); padding: 16px 16px 6px; }
 
   .screen { height: 100dvh; }
   .scroll-area { padding-bottom: 20px; }
 
-  /* FAB moves to bottom right of main area */
-  .fab {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-  }
+  .fab { position: fixed; bottom: 24px; right: 24px; }
 
-  /* Personal view shows all sections at once on desktop */
+  /* Personal view grid on desktop */
   #view-personal .scroll-area {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -653,6 +663,7 @@ textarea.sheet-input{resize:none;line-height:1.5;}
     align-content: start;
   }
 
+  /* Remove mobile subtabs padding */
   .subtabs { display: none !important; }
 
   #sub-shopping { grid-column: 1; }
@@ -663,8 +674,6 @@ textarea.sheet-input{resize:none;line-height:1.5;}
 @media (min-width: 1100px) {
   .sidebar { width: 240px; }
 
-  #view-personal .scroll-area {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
+  #view-personal .scroll-area { grid-template-columns: 1fr 1fr 1fr; }
   #sub-chores { grid-column: auto; }
 }
