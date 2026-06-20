@@ -311,10 +311,13 @@ function renderWork() {
   });
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
 
-  // Summary due-row checkboxes
-  document.querySelectorAll('[data-summary-check]').forEach(el => {
-    el.onclick = () => {
-      const t = DB.get('tasks').find(x => x.id === el.dataset.summaryCheck);
+  // Summary week calendar checkboxes (button inside .swc-task)
+  document.querySelectorAll('.swc-check').forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const card = btn.closest('[data-summary-check]');
+      if (!card) return;
+      const t = DB.get('tasks').find(x => x.id === card.dataset.summaryCheck);
       if (!t) return;
       DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
       render();
@@ -422,71 +425,67 @@ function renderWork() {
 }
 
 function workSummaryHTML(projects, allTasks) {
-  const now  = new Date();
-  const y    = now.getFullYear(), m = now.getMonth();
-
+  const now   = new Date(); now.setHours(0,0,0,0);
   const open  = allTasks.filter(t => !t.done);
-  const doneThisMonth = allTasks.filter(t => {
-    if (!t.done || !t.completedAt) return false;
-    const d = new Date(t.completedAt);
-    return d.getFullYear() === y && d.getMonth() === m;
+
+  // Build day buckets: no-date, today, tomorrow, +2, +3
+  function dayStr(offsetDays) {
+    const d = new Date(now); d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().slice(0,10);
+  }
+  const todayStr = dayStr(0);
+  const cols = [
+    { key: 'none',  label: 'No date',  sub: '',          tasks: [] },
+    { key: 'today', label: 'Today',    sub: new Date(now).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [] },
+    { key: 'd1',    label: 'Tomorrow', sub: new Date(now.getTime()+86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [] },
+    { key: 'd2',    label: dayStr(2),  sub: new Date(now.getTime()+2*86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [], useDate:true },
+    { key: 'd3',    label: dayStr(3),  sub: new Date(now.getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [], useDate:true },
+  ];
+  // Fix labels for +2/+3 (use weekday name)
+  cols[3].label = new Date(now.getTime()+2*86400000).toLocaleDateString('en-US',{weekday:'long'});
+  cols[4].label = new Date(now.getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'long'});
+
+  // Overdue bucket shows in today column
+  open.forEach(t => {
+    if (!t.dueDate) { cols[0].tasks.push(t); return; }
+    const ds = new Date(t.dueDate); ds.setHours(0,0,0,0);
+    const s  = ds.toISOString().slice(0,10);
+    if (s <= todayStr)      cols[1].tasks.push(t);
+    else if (s === dayStr(1)) cols[2].tasks.push(t);
+    else if (s === dayStr(2)) cols[3].tasks.push(t);
+    else if (s === dayStr(3)) cols[4].tasks.push(t);
   });
 
-  // Due this week (Sun–Sat)
-  const startOfWeek = new Date(now); startOfWeek.setHours(0,0,0,0);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  const endOfWeek   = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 7);
-  const dueSoon = open.filter(t => {
-    if (!t.dueDate) return false;
-    const d = new Date(t.dueDate);
-    return d >= startOfWeek && d < endOfWeek;
-  }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  function taskCard(t) {
+    const proj  = projects.find(p => p.id === t.projectId);
+    const color = proj ? (proj.color || '#6366F1') : '#6366F1';
+    const overdue = t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < now.getTime();
+    return '<div class="swc-task" data-summary-check="' + t.id + '">' +
+      '<div class="swc-stripe" style="background:' + color + '"></div>' +
+      '<div class="swc-body">' +
+        '<div class="swc-name' + (overdue ? ' overdue' : '') + '">' + escHtml(t.title) + '</div>' +
+        (proj ? '<div class="swc-proj">' + escHtml(proj.name) + '</div>' : '') +
+      '</div>' +
+      '<button class="swc-check" title="Done">' +
+        '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '</button>' +
+    '</div>';
+  }
 
-  const dueSoonRows = dueSoon.length === 0
-    ? ''
-    : `<div class="summary-due-list">
-        ${dueSoon.map(t => {
-          const proj = projects.find(p => p.id === t.projectId);
-          const color = proj ? (proj.color || '#6366F1') : '#6366F1';
-          const dueInfo = fmt.dueLabel(t.dueDate);
-          return `<div class="summary-due-row">
-            <div class="summary-check" data-summary-check="${t.id}" title="Mark done"></div>
-            <span class="summary-due-stripe" style="background:${escHtml(color)}"></span>
-            <div class="summary-due-body">
-              <span class="summary-due-name">${escHtml(t.title)}</span>
-              <span class="summary-due-project">${proj ? escHtml(proj.name) : ''}</span>
-            </div>
-            <span class="summary-due-date ${dueInfo ? dueInfo.cls : ''}">${dueInfo ? dueInfo.text : fmt.dateShort(t.dueDate)}</span>
-          </div>`;
-        }).join('')}
-      </div>`;
+  const colsHTML = cols.map(col =>
+    '<div class="swc-col' + (col.key === 'today' ? ' today' : '') + '">' +
+      '<div class="swc-col-head">' +
+        '<div class="swc-col-title">' + col.label + '</div>' +
+        (col.sub ? '<div class="swc-col-sub">' + col.sub + '</div>' : '') +
+        '<span class="swc-col-count">' + col.tasks.length + '</span>' +
+      '</div>' +
+      '<div class="swc-col-tasks">' +
+        (col.tasks.length ? col.tasks.map(taskCard).join('') : '<div class="swc-empty">—</div>') +
+      '</div>' +
+    '</div>'
+  ).join('');
 
-  return `
-  <div class="work-summary">
-    <div class="work-summary-stats">
-      <div class="ws-stat">
-        <div class="ws-stat-val">${open.length}</div>
-        <div class="ws-stat-lbl">Open tasks</div>
-      </div>
-      <div class="ws-stat">
-        <div class="ws-stat-val">${projects.length}</div>
-        <div class="ws-stat-lbl">Projects</div>
-      </div>
-      <div class="ws-stat">
-        <div class="ws-stat-val">${dueSoon.length}</div>
-        <div class="ws-stat-lbl">Due this week</div>
-      </div>
-      <div class="ws-stat">
-        <div class="ws-stat-val">${doneThisMonth.length}</div>
-        <div class="ws-stat-lbl">Done this month</div>
-      </div>
-    </div>
-    ${dueSoon.length > 0 ? `
-    <div class="work-summary-section">
-      <div class="work-summary-label">Due this week</div>
-      ${dueSoonRows}
-    </div>` : ''}
-  </div>`;
+  return '<div class="work-summary"><div class="swc-grid">' + colsHTML + '</div></div>';
 }
 
 function quickAddTask(projectId, input) {
@@ -1564,7 +1563,7 @@ function habitListRow(h) {
   const streak = h._streak;
   const rate   = h._rate30;
   const nPerWeek = habitTimesPerWeek(h);
-  let metaBadge, metaRight;
+  let metaBadge, metaRight, barPct;
   if (nPerWeek) {
     const today = new Date(); today.setHours(0,0,0,0);
     const ws = weekStart(today);
@@ -1572,43 +1571,42 @@ function habitListRow(h) {
     const doneThisWeek = countDoneInWeek(doneSet, ws);
     const pct = Math.min(100, Math.round((doneThisWeek / nPerWeek) * 100));
     const weekMet = doneThisWeek >= nPerWeek;
+    barPct = pct;
     metaBadge = weekMet
       ? '<span class="habit-streak-badge">' + (streak >= 2 ? '🔥 ' + streak + 'wk streak' : '✓ Week done') + '</span>'
       : '<span class="habit-week-progress">' + doneThisWeek + ' / ' + nPerWeek + ' this week</span>';
     metaRight = '<span class="habit-rate ' + (pct >= 100 ? 'good' : pct >= 50 ? 'mid' : 'low') + '">' + pct + '%</span>';
   } else {
+    barPct = rate;
     metaBadge = streak > 0
       ? '<span class="habit-streak-badge">' + (streak >= 7 ? '🔥' : '⚡') + ' ' + streak + 'd streak</span>'
       : '<span class="habit-no-streak">Start your streak!</span>';
     metaRight = '<span class="habit-rate ' + (rate >= 80 ? 'good' : rate >= 50 ? 'mid' : 'low') + '">' + rate + '%</span>';
   }
-  return `
-    <div class="habit-row \${done ? 'done' : ''}" data-habit-detail="\${h.id}" style="cursor:pointer">
-      <button class="habit-check \${done ? 'checked' : ''}" data-habit-toggle="\${h.id}"
-        style="\${done ? 'background:' + color + ';border-color:' + color : 'border-color:' + color}" title="\${done ? 'Undo' : 'Mark done for today'}">
-        \${done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-      </button>
-      <div class="habit-emoji-badge" style="background:\${color}22">\${h.emoji || '⭐'}</div>
-      <div class="habit-body">
-        <div class="habit-name">\${escHtml(h.name)}</div>
-        <div class="habit-meta">
-          \${metaBadge}
-          \${metaRight}
-        </div>
-        <div class="habit-bar-track">
-          <div class="habit-bar-fill" style="width:\${nPerWeek ? Math.min(100,Math.round((countDoneInWeek(habitDoneDays(h),weekStart(new Date()))/nPerWeek)*100)) : rate}%;background:\${color}"></div>
-        </div>
-      </div>
-      <div class="task-actions">
-        <button class="task-action-btn" data-habit-edit="\${h.id}" title="Edit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="task-action-btn delete" data-habit-delete="\${h.id}" title="Delete">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>
-      </div>
-    </div>
-  `;
+  const checkIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  return (
+    '<div class="habit-row' + (done ? ' done' : '') + '" data-habit-detail="' + h.id + '" style="cursor:pointer">' +
+      '<button class="habit-check' + (done ? ' checked' : '') + '" data-habit-toggle="' + h.id + '"' +
+        ' style="' + (done ? 'background:' + color + ';border-color:' + color : 'border-color:' + color) + '"' +
+        ' title="' + (done ? 'Undo' : 'Mark done for today') + '">' +
+        (done ? checkIcon : '') +
+      '</button>' +
+      '<div class="habit-emoji-badge" style="background:' + color + '22">' + (h.emoji || '⭐') + '</div>' +
+      '<div class="habit-body">' +
+        '<div class="habit-name">' + escHtml(h.name) + '</div>' +
+        '<div class="habit-meta">' + metaBadge + metaRight + '</div>' +
+        '<div class="habit-bar-track"><div class="habit-bar-fill" style="width:' + barPct + '%;background:' + color + '"></div></div>' +
+      '</div>' +
+      '<div class="task-actions">' +
+        '<button class="task-action-btn" data-habit-edit="' + h.id + '" title="Edit">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+        '</button>' +
+        '<button class="task-action-btn delete" data-habit-delete="' + h.id + '" title="Delete">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</div>'
+  );
 }
 
 function renderHabitDetail() {
