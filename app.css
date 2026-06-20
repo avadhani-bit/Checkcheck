@@ -472,7 +472,7 @@ textarea.sheet-input{resize:none;line-height:1.5;}
 }
 
 .sidebar {
-  display: none; /* hidden always on mobile */
+  display: none !important; /* hidden by default, JS enables on desktop */
   width: 220px;
   flex-shrink: 0;
   background: var(--s1);
@@ -480,6 +480,10 @@ textarea.sheet-input{resize:none;line-height:1.5;}
   flex-direction: column;
   padding: 20px 12px;
   gap: 2px;
+}
+
+.sidebar.desktop-visible {
+  display: flex !important;
 }
 
 .sidebar-brand {
@@ -633,7 +637,6 @@ textarea.sheet-input{resize:none;line-height:1.5;}
     height: 100dvh;
   }
 
-  .sidebar { display: flex; }
   .main-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
   /* Hide mobile topbar and tabs on desktop */

@@ -1130,3 +1130,32 @@ function updateSidebarUser(user) {
   if (el) el.src = user.photoURL || '';
   if (nm) nm.textContent = user.displayName || user.email || '';
 }
+
+// ── DESKTOP DETECTION ─────────────────────────────────────
+// Only show sidebar when there's a real pointer device (mouse) AND wide screen
+// This prevents tablets/phones from showing the sidebar even at wide widths
+function checkDesktop() {
+  const isWide    = window.innerWidth >= 768;
+  const hasMouse  = window.matchMedia('(pointer: fine)').matches;
+  const isDesktop = isWide && hasMouse;
+  const sidebar   = document.getElementById('sidebar');
+  const topbar    = document.querySelector('.topbar');
+  const subtabs   = document.querySelector('.subtabs');
+  const app       = document.getElementById('app');
+
+  if (isDesktop) {
+    sidebar?.classList.add('desktop-visible');
+    if (topbar)  topbar.style.display  = 'none';
+    if (subtabs) subtabs.style.display = 'none';
+    if (app) { app.style.flexDirection = 'row'; app.style.maxWidth = 'none'; }
+  } else {
+    sidebar?.classList.remove('desktop-visible');
+    if (topbar)  topbar.style.display  = '';
+    if (subtabs) subtabs.style.display = '';
+    if (app) { app.style.flexDirection = ''; app.style.maxWidth = ''; }
+  }
+}
+
+// Run on load and on resize
+checkDesktop();
+window.addEventListener('resize', checkDesktop);
