@@ -63,7 +63,7 @@ let reportMonthOffset = 0;  // 0 = current month, -1 = last month, etc.
 const userCol = name => collection(db, 'users', uid, name);
 const userDoc = (col, id) => doc(db, 'users', uid, col, id);
 const newId   = () => Math.random().toString(36).slice(2, 10);
-const today   = () => new Date().toISOString().slice(0, 10);
+const getToday = () => new Date().toISOString().slice(0, 10);
 
 // ── Auth ──────────────────────────────────────────────────
 document.getElementById('google-signin-btn').addEventListener('click', async () => {
@@ -91,6 +91,7 @@ onAuthStateChanged(auth, user => {
     document.getElementById('user-menu-avatar').src = av;
     document.getElementById('user-menu-name').textContent  = user.displayName || '';
     document.getElementById('user-menu-email').textContent = user.email || '';
+    setTimeout(() => updateSidebarUser(user), 0);
     // Show app
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
@@ -247,7 +248,7 @@ function taskRowHTML(task, showDoneDate = false) {
 
   let dueChip = '';
   if (task.due && !isDone) {
-    const diff = daysDiff(task.due, today());
+    const diff = daysDiff(task.due, getToday());
     const cls  = diff < 0 ? 'due-late' : diff === 0 ? 'due-today' : 'due-ok';
     const lbl  = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : fmtDate(task.due);
     dueChip = `<span class="due-chip ${cls}">${lbl}</span>`;
@@ -274,7 +275,7 @@ async function toggleTaskDone(taskId) {
   const nowDone = !task.done;
   await updateDoc(userDoc('tasks', taskId), {
     done:   nowDone,
-    doneAt: nowDone ? today() : null
+    doneAt: nowDone ? getToday() : null
   });
 }
 
@@ -446,11 +447,15 @@ function renderShopping() {
   }
   empty.classList.add('hidden');
 
-  list.innerHTML = shopping.map(item => `
+  // Unchecked first (sorted newest first), then checked items at bottom
+  const unchecked = shopping.filter(i => !i.checked).sort((a,b) => (a.sortKey||0) - (b.sortKey||0));
+  const checked   = shopping.filter(i =>  i.checked).sort((a,b) => (a.sortKey||0) - (b.sortKey||0));
+  const sorted    = [...unchecked, ...checked];
+
+  list.innerHTML = sorted.map(item => `
     <div class="shop-row ${item.checked ? 'checked' : ''}" data-shop-id="${item.id}">
       <div class="shop-check"></div>
       <span class="shop-name">${esc(item.name)}</span>
-      ${item.qty ? `<span class="shop-qty">${esc(item.qty)}</span>` : ''}
     </div>`).join('');
 
   list.querySelectorAll('[data-shop-id]').forEach(row => {
@@ -478,7 +483,7 @@ function renderTodos() {
   let html = open.map(t => {
     let dueChip = '';
     if (t.due) {
-      const diff = daysDiff(t.due, today());
+      const diff = daysDiff(t.due, getToday());
       const cls  = diff < 0 ? 'due-late' : diff === 0 ? 'due-today' : 'due-ok';
       const lbl  = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : fmtDate(t.due);
       dueChip = `<span class="due-chip ${cls}">${lbl}</span>`;
@@ -537,13 +542,13 @@ async function toggleTodoDone(todoId) {
   const nowDone = !todo.done;
   await updateDoc(userDoc('todos', todoId), {
     done:   nowDone,
-    doneAt: nowDone ? today() : null
+    doneAt: nowDone ? getToday() : null
   });
 }
 
 // ══ CHORES ════════════════════════════════════════════════
 function choreStatus(chore) {
-  const daysAgo = dateDiffDays(chore.lastDone || today(), today());
+  const daysAgo = dateDiffDays(chore.lastDone || getToday(), getToday());
   const pct     = Math.min(100, Math.round(daysAgo / chore.freq * 100));
   return {
     daysAgo,
@@ -605,10 +610,10 @@ function renderChores() {
 async function markChoreDone(choreId) {
   const chore = chores.find(c => c.id === choreId);
   if (!chore) return;
-  const daysAgo = dateDiffDays(chore.lastDone || today(), today());
-  const newHistory = [...(chore.history || []), { date: today(), days: daysAgo }].slice(-20);
+  const daysAgo = dateDiffDays(chore.lastDone || getToday(), getToday());
+  const newHistory = [...(chore.history || []), { date: getToday(), days: daysAgo }].slice(-20);
   await updateDoc(userDoc('chores', choreId), {
-    lastDone: today(),
+    lastDone: getToday(),
     history:  newHistory
   });
   showToast('Marked done ✓');
@@ -859,19 +864,18 @@ document.getElementById('save-task-btn').addEventListener('click', async () => {
   showToast(`Task added`);
 });
 
-// Shopping item
+// Shopping item — no qty, added to TOP using negative sort key
 document.getElementById('save-item-btn').addEventListener('click', async () => {
   const name = document.getElementById('item-name-input').value.trim();
   if (!name) return;
   closeSheet('sheet-item');
   await setDoc(doc(userCol('shopping'), newId()), {
     name,
-    qty:     document.getElementById('item-qty-input').value.trim() || null,
-    checked: false,
+    checked:  false,
+    sortKey:  -Date.now(),   // negative so newest sorts first
     createdAt: serverTimestamp()
   });
   document.getElementById('item-name-input').value = '';
-  document.getElementById('item-qty-input').value  = '';
   showToast('Item added');
 });
 
@@ -894,7 +898,7 @@ document.getElementById('save-todo-btn').addEventListener('click', async () => {
 });
 
 // Chore
-document.getElementById('chore-last-input').value = today();
+document.getElementById('chore-last-input').value = getToday();
 document.getElementById('save-chore-btn').addEventListener('click', async () => {
   const name = document.getElementById('chore-name-input').value.trim();
   if (!name) return;
@@ -902,7 +906,7 @@ document.getElementById('save-chore-btn').addEventListener('click', async () => 
   await setDoc(doc(userCol('chores'), newId()), {
     name,
     freq:     parseInt(document.getElementById('chore-freq-select').value),
-    lastDone: document.getElementById('chore-last-input').value || today(),
+    lastDone: document.getElementById('chore-last-input').value || getToday(),
     history:  [],
     createdAt: serverTimestamp()
   });
@@ -1005,4 +1009,124 @@ function tagLabel(tag) {
 function esc(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══ SIDEBAR NAVIGATION (desktop) ═════════════════════════
+let allMonthOffset = 0;
+
+document.querySelectorAll('[data-sidebar]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.sidebar;
+    document.querySelectorAll('[data-sidebar]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    if (target === 'work') {
+      goScreen('screen-main');
+      // ensure work tab is showing
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('on'));
+      document.getElementById('view-work').classList.add('on');
+    } else if (target === 'monthly') {
+      allMonthOffset = 0;
+      openAllMonthlyReport();
+    } else if (target === 'shopping' || target === 'todo' || target === 'chores') {
+      goScreen('screen-main');
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('on'));
+      document.getElementById('view-personal').classList.add('on');
+    }
+  });
+});
+
+// Sidebar user button
+document.getElementById('sidebar-user-btn')?.addEventListener('click', () => goScreen('screen-user'));
+
+// Monthly report button (mobile, in greeting strip)
+document.getElementById('monthly-report-btn')?.addEventListener('click', () => {
+  allMonthOffset = 0;
+  openAllMonthlyReport();
+});
+
+document.getElementById('monthly-back')?.addEventListener('click', () => goScreen('screen-main'));
+document.getElementById('all-month-prev')?.addEventListener('click', () => { allMonthOffset--; renderAllMonthlyReport(); });
+document.getElementById('all-month-next')?.addEventListener('click', () => { if (allMonthOffset < 0) { allMonthOffset++; renderAllMonthlyReport(); } });
+
+document.getElementById('copy-all-btn')?.addEventListener('click', () => {
+  const mk    = monthKey(allMonthOffset);
+  const label = fmtMonthKey(mk);
+  let text    = `Monthly Report — ${label}\n${'='.repeat(40)}\n\n`;
+  let total   = 0;
+  projects.forEach(proj => {
+    const done = tasks.filter(t => t.projectId === proj.id && t.done && (t.doneAt||'').startsWith(mk))
+      .sort((a,b) => (b.doneAt||'').localeCompare(a.doneAt||''));
+    if (!done.length) return;
+    text += `${proj.name} (${done.length})\n`;
+    done.forEach(t => { text += `  • ${t.name} — ${fmtDate(t.doneAt)}\n`; });
+    text += '\n';
+    total += done.length;
+  });
+  text += `Total: ${total} tasks completed in ${label}`;
+  navigator.clipboard?.writeText(text).catch(() => {});
+  showToast('Full report copied ✓');
+});
+
+function openAllMonthlyReport() {
+  renderAllMonthlyReport();
+  goScreen('screen-monthly');
+}
+
+function renderAllMonthlyReport() {
+  const mk    = monthKey(allMonthOffset);
+  const label = fmtMonthKey(mk);
+  document.getElementById('all-month-label').textContent = label;
+  document.getElementById('all-month-next').style.opacity = allMonthOffset < 0 ? '1' : '0.3';
+
+  let totalDone = 0;
+  let totalOpen = 0;
+
+  const html = projects.map(proj => {
+    const done = tasks
+      .filter(t => t.projectId === proj.id && t.done && (t.doneAt||'').startsWith(mk))
+      .sort((a,b) => (b.doneAt||'').localeCompare(a.doneAt||''));
+    const open = tasks.filter(t => t.projectId === proj.id && !t.done).length;
+    totalDone += done.length;
+    totalOpen += open;
+
+    const rows = done.length
+      ? done.map(t => `
+          <div class="report-row">
+            <span class="report-check">✓</span>
+            <div style="flex:1">
+              <div class="report-task-name">${esc(t.name)}</div>
+              <div class="report-task-date">${fmtDate(t.doneAt)}</div>
+            </div>
+          </div>`).join('')
+      : `<div class="all-proj-empty">Nothing completed this month.</div>`;
+
+    return `
+      <div class="all-proj-block">
+        <div class="all-proj-hd">
+          <span class="all-proj-dot" style="background:${proj.color}"></span>
+          <span class="all-proj-name">${esc(proj.name)}</span>
+          <span class="all-proj-count">${done.length} done · ${open} open</span>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  document.getElementById('all-report-summary-bar').innerHTML = `
+    <div class="rsb-stat"><div class="rsb-n green">${totalDone}</div><div class="rsb-l">Tasks done</div></div>
+    <div class="rsb-stat"><div class="rsb-n">${totalOpen}</div><div class="rsb-l">Still open</div></div>
+    <div class="rsb-stat"><div class="rsb-n">${projects.length}</div><div class="rsb-l">Projects</div></div>
+  `;
+
+  document.getElementById('all-report-content').innerHTML =
+    projects.length ? html : '<div class="empty-state"><div class="empty-icon">🗂</div><p>No projects yet.</p></div>';
+}
+
+// Sync sidebar avatar
+function updateSidebarUser(user) {
+  if (!user) return;
+  const el = document.getElementById('sidebar-avatar');
+  const nm = document.getElementById('sidebar-name');
+  if (el) el.src = user.photoURL || '';
+  if (nm) nm.textContent = user.displayName || user.email || '';
 }
