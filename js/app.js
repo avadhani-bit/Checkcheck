@@ -114,11 +114,11 @@ function applyTimeBasedTheme() {
 // ─── APP STATE ────────────────────────────────────────────────────
 
 const state = {
-  mode:          'work',     // 'work' | 'personal' | 'reports'
-  prevMode:      'work',
+  mode:          'work',     // 'work' | 'personal'
   activeProject: null,       // project id when in completed-task detail
   activeChore:   null,       // chore id when in chore history detail
   personalTab:   'todo',     // 'todo' | 'shopping' | 'chores'
+  workView:      'board',    // 'board' | 'reports'
   reportMonth:   new Date().getMonth(),
   reportYear:    new Date().getFullYear(),
   projectMonth:  new Date().getMonth(),
@@ -132,22 +132,131 @@ const main = () => document.getElementById('main-content');
 function render() {
   if (state.mode === 'work') {
     if (state.activeProject) renderProjectCompleted();
+    else if (state.workView === 'reports') renderReports();
     else renderWork();
   } else if (state.mode === 'personal') {
     if (state.activeChore && state.personalTab === 'chores') renderChoreDetail();
     else renderPersonal();
-  } else if (state.mode === 'reports') {
-    renderReports();
   }
   syncHeader();
+  updateTimerBar();
 }
 
 function syncHeader() {
   document.querySelectorAll('.mode-btn').forEach(b => {
-    b.classList.toggle('active',
-      b.dataset.mode === (state.mode === 'reports' ? state.prevMode : state.mode));
+    b.classList.toggle('active', b.dataset.mode === state.mode);
   });
-  document.getElementById('reports-btn').classList.toggle('active', state.mode === 'reports');
+}
+
+// ─── GLOBAL TIMER SYSTEM ────────────────────────────────────────
+const TIMER_KEY = 'cc_active_timer';
+let _globalTimerInterval = null;
+
+function getActiveTimer() {
+  try { return JSON.parse(localStorage.getItem(TIMER_KEY) || 'null'); } catch { return null; }
+}
+function setActiveTimer(data) {
+  if (data) localStorage.setItem(TIMER_KEY, JSON.stringify(data));
+  else localStorage.removeItem(TIMER_KEY);
+}
+
+function startChoreTimer(choreId, durationMinutes) {
+  setActiveTimer({ choreId, startedAt: Date.now(), durationMs: durationMinutes * 60 * 1000 });
+  // Request notification permission for background alert
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+  startGlobalTimerTick();
+}
+
+function stopChoreTimer() {
+  clearInterval(_globalTimerInterval);
+  _globalTimerInterval = null;
+  setActiveTimer(null);
+  updateTimerBar();
+}
+
+function startGlobalTimerTick() {
+  clearInterval(_globalTimerInterval);
+  _globalTimerInterval = setInterval(checkAndTickTimer, 1000);
+  checkAndTickTimer();
+}
+
+function checkAndTickTimer() {
+  const t = getActiveTimer();
+  if (!t) { clearInterval(_globalTimerInterval); updateTimerBar(); return; }
+  const elapsed = Date.now() - t.startedAt;
+  if (elapsed >= t.durationMs) {
+    ringGlobalTimer(t.choreId);
+  } else {
+    updateTimerBar();
+  }
+}
+
+function ringGlobalTimer(choreId) {
+  clearInterval(_globalTimerInterval);
+  _globalTimerInterval = null;
+  setActiveTimer(null);
+  // Mark chore done automatically
+  markChoreDone(choreId);
+  // Beep
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.4, 0.8].forEach(offset => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.5, ctx.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.35);
+      osc.start(ctx.currentTime + offset);
+      osc.stop(ctx.currentTime + offset + 0.4);
+    });
+  } catch(e) {}
+  // Browser notification (works in background tabs; on iOS PWA, works when app is open)
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const chore = DB.get('chores').find(c => c.id === choreId);
+    new Notification('✓ Timer done!', {
+      body: chore ? `"${chore.title}" has been marked complete.` : 'Chore timer complete.',
+      icon: 'assets/icon-192.png'
+    });
+  }
+  // Show "done" bar briefly then re-render
+  showTimerDoneBar(choreId);
+  render();
+}
+
+function showTimerDoneBar(choreId) {
+  const bar = document.getElementById('global-timer-bar');
+  if (!bar) return;
+  const chore = DB.get('chores').find(c => c.id === choreId);
+  bar.className = 'global-timer-bar done';
+  bar.style.display = 'flex';
+  bar.innerHTML = `<span>✓ ${chore ? escHtml(chore.title) : 'Timer'} complete — chore marked done!</span>
+    <button class="gtb-stop" id="gtb-dismiss">Dismiss</button>`;
+  document.getElementById('gtb-dismiss').onclick = () => { bar.style.display = 'none'; bar.className = 'global-timer-bar'; };
+  setTimeout(() => { bar.style.display = 'none'; bar.className = 'global-timer-bar'; }, 6000);
+}
+
+function updateTimerBar() {
+  const bar = document.getElementById('global-timer-bar');
+  if (!bar) return;
+  const t = getActiveTimer();
+  if (!t) { if (!bar.classList.contains('done')) bar.style.display = 'none'; return; }
+  const remaining = Math.max(0, Math.ceil((t.durationMs - (Date.now() - t.startedAt)) / 1000));
+  const chore = DB.get('chores').find(c => c.id === t.choreId);
+  const m = Math.floor(remaining / 60), s = remaining % 60;
+  const timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const urgent = remaining <= 60;
+  bar.className = 'global-timer-bar';
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <span class="gtb-icon">⏱</span>
+    <span class="gtb-name">${chore ? escHtml(chore.title) : 'Timer'}</span>
+    <span class="gtb-time${urgent ? ' urgent' : ''}">${timeStr}</span>
+    <button class="gtb-stop" id="gtb-stop">Stop</button>
+  `;
+  document.getElementById('gtb-stop').onclick = stopChoreTimer;
 }
 
 // ─── WORK VIEW (expanded cards with inline tasks) ─────────────────
@@ -160,7 +269,10 @@ function renderWork() {
     <div class="page-header">
       <div class="page-header-left">
         <div class="page-title">Work</div>
-        <div class="page-subtitle">${projects.length} project${projects.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="work-tabs">
+        <button class="work-tab ${state.workView === 'board' ? 'active' : ''}" data-work-view="board">Board</button>
+        <button class="work-tab ${state.workView === 'reports' ? 'active' : ''}" data-work-view="reports">Reports</button>
       </div>
       <button class="add-btn" id="btn-add-project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -174,6 +286,13 @@ function renderWork() {
          ${workSummaryHTML(projects, allTasks)}`}
   `;
 
+  document.querySelectorAll('[data-work-view]').forEach(btn => {
+    btn.onclick = () => {
+      state.workView = btn.dataset.workView;
+      if (state.workView === 'reports') renderReports();
+      else renderWork();
+    };
+  });
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
 
   // Summary due-row checkboxes
@@ -404,9 +523,10 @@ function workTaskRow(t) {
   return `
     <div class="task-row" draggable="true" data-task-id="${t.id}">
       <div class="task-check" data-check-id="${t.id}"></div>
-      <div class="task-body">
+      <div class="task-body" data-edit-task="${t.id}" style="cursor:pointer">
         <div class="task-name">${escHtml(t.title)}</div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+        ${t.notes ? `<div class="task-notes-preview">${escHtml(t.notes.slice(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : ''}
       </div>
       ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
       <div class="task-actions">
@@ -673,7 +793,17 @@ function renderTodoPanel() {
     el.onclick = () => {
       const t = DB.get('todos').find(x => x.id === el.dataset.todoCheck);
       if (!t) return;
-      DB.update('todos', t.id, { done: !t.done, completedAt: !t.done ? Date.now() : null });
+      const nowDone = !t.done;
+      DB.update('todos', t.id, { done: nowDone, completedAt: nowDone ? Date.now() : null });
+      // If recurring and just completed, create next occurrence
+      if (nowDone && t.recurrence && t.recurrence !== 'none') {
+        const nextDue = nextRecurDate(t.dueDate, t.recurrence);
+        DB.add('todos', {
+          id: uid(), title: t.title, done: false,
+          dueDate: nextDue, recurrence: t.recurrence,
+          completedAt: null, createdAt: Date.now()
+        });
+      }
       renderTodoPanel();
     };
   });
@@ -690,6 +820,17 @@ function renderTodoPanel() {
   });
 }
 
+function nextRecurDate(fromDate, recurrence) {
+  const base = fromDate ? new Date(fromDate) : new Date();
+  const d = new Date(base);
+  if (recurrence === 'daily')   d.setDate(d.getDate() + 1);
+  if (recurrence === 'weekly')  d.setDate(d.getDate() + 7);
+  if (recurrence === 'monthly') d.setMonth(d.getMonth() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+const RECUR_LABELS = { daily: '↻ daily', weekly: '↻ weekly', monthly: '↻ monthly' };
+
 function todoRow(t) {
   const due = !t.done ? fmt.dueLabel(t.dueDate) : null;
   return `
@@ -699,6 +840,7 @@ function todoRow(t) {
         <div class="task-name">${escHtml(t.title)}</div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
       </div>
+      ${t.recurrence && !t.done ? `<span class="task-tag tag-recur">${RECUR_LABELS[t.recurrence] || ''}</span>` : ''}
       ${t.done && t.completedAt
         ? `<div class="task-done-date">${fmt.dateShort(t.completedAt)}</div>`
         : ''}
@@ -830,6 +972,20 @@ function renderChoresPanel() {
     };
   });
 
+  // Timer button on list page
+  document.querySelectorAll('[data-chore-timer]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      const active = getActiveTimer();
+      if (active && active.choreId === el.dataset.choreTimer) {
+        stopChoreTimer();
+      } else {
+        startChoreTimer(el.dataset.choreTimer, parseInt(el.dataset.timerMins));
+      }
+      renderChoresPanel();
+    };
+  });
+
   // Edit
   document.querySelectorAll('[data-chore-edit]').forEach(el => {
     el.onclick = e => {
@@ -876,6 +1032,7 @@ function choreListRow(c) {
         <div class="chore-status ${status.cls}">${status.text}</div>
       </div>
       <div class="chore-actions">
+        ${c.timerMinutes ? `<button class="chore-timer-list-btn" data-chore-timer="${c.id}" data-timer-mins="${c.timerMinutes}" title="Start ${c.timerMinutes}min timer">⏱${c.timerMinutes}m</button>` : ''}
         <button class="chore-done-btn" data-chore-done="${c.id}">✓ Done</button>
         <button class="task-action-btn" data-chore-edit="${c.id}" title="Edit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1002,7 +1159,7 @@ function renderChoreDetail() {
         <button class="chore-done-btn" id="chore-done-now" style="padding:8px 18px;font-size:.875rem">✓ Mark Done</button>
       </div>
     </div>
-    ${chore.timerMinutes ? '<div id="chore-timer-display" style="display:none"></div>' : ''}
+
 
     <!-- Stats -->
     <div class="stats-row">
@@ -1120,71 +1277,21 @@ function renderChoreDetail() {
   };
 
   // Timer wiring
+  // Detail page timer button — uses global persistent timer
   if (chore.timerMinutes) {
-    const timerBtn  = document.getElementById('chore-timer-btn');
-    const timerDisp = document.getElementById('chore-timer-display');
-    let _timerInterval = null;
-    let _timerRemaining = 0;
-
-    const fmtTime = s => {
-      const m = Math.floor(s / 60), sec = s % 60;
-      return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-    };
-
-    const stopTimer = () => {
-      clearInterval(_timerInterval);
-      _timerInterval = null;
-      timerBtn.textContent = `⏱ ${chore.timerMinutes}min Timer`;
-      timerBtn.classList.add('start');
-      timerDisp.style.display = 'none';
-    };
-
-    const ringTimer = () => {
-      stopTimer();
-      // Web Audio beep
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        [0, 0.4, 0.8].forEach(t => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.frequency.value = 880;
-          gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.35);
-          osc.start(ctx.currentTime + t);
-          osc.stop(ctx.currentTime + t + 0.35);
-        });
-      } catch(e) {}
-      timerDisp.style.display = 'flex';
-      timerDisp.innerHTML = `<div class="timer-display"><span class="timer-clock" style="color:var(--green)">✓ Done!</span><button class="timer-btn" id="timer-dismiss">Dismiss</button></div>`;
-      document.getElementById('timer-dismiss').onclick = stopTimer;
-    };
-
-    const startTimer = () => {
-      _timerRemaining = chore.timerMinutes * 60;
-      timerBtn.textContent = 'Stop';
-      timerBtn.classList.remove('start');
-      timerDisp.style.display = 'block';
-      const update = () => {
-        if (_timerRemaining <= 0) { ringTimer(); return; }
-        const urgent = _timerRemaining <= 60;
-        timerDisp.innerHTML = `<div class="timer-display">
-          <span class="timer-clock${urgent ? ' urgent' : ''}">${fmtTime(_timerRemaining)}</span>
-          <div class="timer-controls">
-            <button class="timer-btn" id="timer-stop-btn">Stop</button>
-          </div>
-        </div>`;
-        document.getElementById('timer-stop-btn').onclick = stopTimer;
-        _timerRemaining--;
+    const timerBtn = document.getElementById('chore-timer-btn');
+    if (timerBtn) {
+      const active = getActiveTimer();
+      const isRunning = active && active.choreId === chore.id;
+      timerBtn.textContent = isRunning ? '⏹ Stop Timer' : `⏱ ${chore.timerMinutes}min Timer`;
+      timerBtn.classList.toggle('start', !isRunning);
+      timerBtn.onclick = () => {
+        const cur = getActiveTimer();
+        if (cur && cur.choreId === chore.id) stopChoreTimer();
+        else startChoreTimer(chore.id, chore.timerMinutes);
+        renderChoreDetail();
       };
-      update();
-      _timerInterval = setInterval(update, 1000);
-    };
-
-    timerBtn.onclick = () => {
-      if (_timerInterval) stopTimer();
-      else startTimer();
-    };
+    }
   }
 
   // Retrospective calendar: click a day to add/remove from history
@@ -1428,6 +1535,10 @@ function openTaskModal(project, existing) {
       <input class="form-input" id="task-due" type="date" value="${existing?.dueDate || ''}" />
     </div>
     <div class="form-group">
+      <label class="form-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
+      <textarea class="form-input" id="task-notes" rows="3" placeholder="Any details, links, context…" style="resize:vertical;min-height:72px">${escHtml(existing?.notes || '')}</textarea>
+    </div>
+    <div class="form-group">
       <label class="form-label">Tag</label>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:400;">
         <input type="checkbox" id="task-followup" ${existing?.tag === 'follow-up' ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
@@ -1444,10 +1555,11 @@ function openTaskModal(project, existing) {
   document.getElementById('modal-save').onclick = () => {
     const title   = document.getElementById('task-name').value.trim();
     const dueDate = document.getElementById('task-due').value || null;
+    const notes   = document.getElementById('task-notes').value.trim() || null;
     const tag     = document.getElementById('task-followup').checked ? 'follow-up' : null;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, tag });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, tag, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
@@ -1457,6 +1569,8 @@ function openTaskModal(project, existing) {
 // -- Todo modal --
 function openTodoModal(existing) {
   const isEdit = !!existing;
+  const recurrenceOptions = ['none','daily','weekly','monthly'];
+  const curRecurrence = existing?.recurrence || 'none';
   openModal(isEdit ? 'Edit To-do' : 'New To-do', `
     <div class="form-group">
       <label class="form-label">What needs to be done?</label>
@@ -1466,6 +1580,15 @@ function openTodoModal(existing) {
       <label class="form-label">Due date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
       <input class="form-input" id="todo-due" type="date" value="${existing?.dueDate || ''}" />
     </div>
+    <div class="form-group">
+      <label class="form-label">Repeats</label>
+      <select class="form-input" id="todo-recurrence">
+        <option value="none" ${curRecurrence === 'none' ? 'selected' : ''}>Does not repeat</option>
+        <option value="daily" ${curRecurrence === 'daily' ? 'selected' : ''}>Daily</option>
+        <option value="weekly" ${curRecurrence === 'weekly' ? 'selected' : ''}>Weekly</option>
+        <option value="monthly" ${curRecurrence === 'monthly' ? 'selected' : ''}>Monthly</option>
+      </select>
+    </div>
     <div class="form-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-save">${isEdit ? 'Save' : 'Add'}</button>
@@ -1474,11 +1597,12 @@ function openTodoModal(existing) {
 
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save').onclick = () => {
-    const title   = document.getElementById('todo-name').value.trim();
-    const dueDate = document.getElementById('todo-due').value || null;
+    const title      = document.getElementById('todo-name').value.trim();
+    const dueDate    = document.getElementById('todo-due').value || null;
+    const recurrence = document.getElementById('todo-recurrence').value;
     if (!title) { document.getElementById('todo-name').focus(); return; }
-    if (isEdit) DB.update('todos', existing.id, { title, dueDate });
-    else DB.add('todos', { id: uid(), title, done: false, dueDate, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence });
+    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, completedAt: null, createdAt: Date.now() });
     closeModal();
     renderTodoPanel();
   };
@@ -1564,6 +1688,60 @@ function openChoreModal(existing) {
   document.getElementById('chore-name').focus();
 }
 
+
+// ─── DATA BACKUP MODAL ────────────────────────────────────────────
+function openDataModal() {
+  const KEYS = ['projects','tasks','todos','shopping','chores'];
+  openModal('Data Backup', `
+    <p style="font-size:.85rem;color:var(--text-2);margin-bottom:16px;line-height:1.5">
+      Your data lives in this browser's localStorage, tied to this domain.
+      Export regularly as a backup, or to import into another device.
+    </p>
+    <div class="form-actions" style="flex-direction:column;gap:10px">
+      <button class="btn-primary" id="export-btn">⬇ Export JSON backup</button>
+      <label class="btn-secondary" style="cursor:pointer;text-align:center">
+        ⬆ Import JSON backup
+        <input type="file" id="import-file" accept=".json" style="display:none" />
+      </label>
+    </div>
+    <div id="import-status" style="margin-top:12px;font-size:.82rem;color:var(--text-2)"></div>
+  `);
+
+  document.getElementById('export-btn').onclick = () => {
+    const data = {};
+    KEYS.forEach(k => { data[k] = DB.get(k); });
+    data._exportedAt = new Date().toISOString();
+    data._version = 1;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `checkcheck-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  };
+
+  document.getElementById('import-file').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        let imported = 0;
+        KEYS.forEach(k => {
+          if (Array.isArray(data[k])) { DB.set(k, data[k]); imported++; }
+        });
+        document.getElementById('import-status').innerHTML =
+          `<span style="color:var(--green)">✓ Imported ${imported} collections. Reloading…</span>`;
+        setTimeout(() => { closeModal(); render(); }, 1200);
+      } catch {
+        document.getElementById('import-status').innerHTML =
+          `<span style="color:var(--red)">✗ Invalid file — please use a CheckCheck JSON export.</span>`;
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+
 // ---- BOOTSTRAP ----
 
 function init() {
@@ -1588,21 +1766,28 @@ function init() {
     };
   });
 
-  document.getElementById('reports-btn').onclick = () => {
-    if (state.mode === 'reports') {
-      state.mode = state.prevMode || 'work';
-    } else {
-      state.prevMode = state.mode === 'reports' ? 'work' : state.mode;
-      state.mode = 'reports';
-    }
-    render();
-  };
+  // Data backup button
+  document.getElementById('data-btn').onclick = openDataModal;
 
   document.getElementById('modal-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
   });
   document.getElementById('modal-close').onclick = closeModal;
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Resume any active timer that survived page reload
+  if (getActiveTimer()) startGlobalTimerTick();
+
+  // When page becomes visible again (unlock / tab switch), recheck timer
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const t = getActiveTimer();
+      if (t) {
+        if (Date.now() - t.startedAt >= t.durationMs) ringGlobalTimer(t.choreId);
+        else { startGlobalTimerTick(); updateTimerBar(); }
+      }
+    }
+  });
 
   render();
 }

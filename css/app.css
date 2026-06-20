@@ -1451,3 +1451,161 @@ body.dark .task-tag.tag-follow-up {
   transition: background var(--transition), border-color var(--transition);
 }
 .summary-check:hover { border-color: var(--accent); background: var(--surface-2); }
+
+/* ─── GLOBAL TIMER BAR ─── */
+.global-timer-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: #fff;
+  font-size: .875rem;
+  font-weight: 500;
+  z-index: 50;
+  position: sticky;
+  top: 0;
+  box-shadow: 0 2px 8px rgba(99,102,241,.35);
+}
+.global-timer-bar.done { background: #10B981; }
+.gtb-icon { font-size: 1rem; }
+.gtb-name { flex: 1; font-weight: 600; }
+.gtb-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  min-width: 52px;
+  text-align: right;
+}
+.gtb-time.urgent { color: #FDE68A; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+.gtb-stop {
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.2);
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.gtb-stop:hover { background: rgba(255,255,255,.3); }
+
+/* ─── WORK SUB-TABS ─── */
+.work-tabs {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.work-tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.work-tab.active {
+  background: var(--surface);
+  color: var(--text-1);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* ─── HEADER ICON BTN ─── */
+.header-icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  flex-shrink: 0;
+}
+.header-icon-btn:hover { background: var(--surface-2); color: var(--text-1); }
+
+/* ─── CHORE TIMER LIST BTN ─── */
+.chore-timer-list-btn {
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.chore-timer-list-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ─── TASK NOTES PREVIEW ─── */
+.task-notes-preview {
+  font-size: .75rem;
+  color: var(--text-3);
+  margin-top: 2px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+/* ─── RECURRENCE TAG ─── */
+.task-tag.tag-recur {
+  background: #F0FDF4;
+  color: #15803D;
+  border: 1px solid #BBF7D0;
+}
+body.dark .task-tag.tag-recur {
+  background: #14532D;
+  color: #86EFAC;
+  border-color: #166534;
+}
+
+/* ─── VISUAL POLISH ─── */
+
+/* Slightly tighter task rows */
+.task-row { padding: 9px 16px; gap: 10px; }
+.chore-row { padding: 10px 16px; }
+
+/* Tighter project expanded cards */
+.project-expanded-card { border-radius: 12px; }
+.project-expanded-header { padding: 12px 14px 10px; }
+.project-expanded-footer { padding: 8px 12px; }
+.inline-add-input { padding: 7px 10px; font-size: .83rem; }
+.inline-add-btn { padding: 7px 12px; font-size: .83rem; }
+
+/* Nicer card shadows */
+.card { border-radius: 12px; }
+.stat-card { border-radius: 10px; }
+
+/* Better page header spacing */
+.page-header { margin-bottom: 18px; }
+
+/* Better month nav */
+.month-nav { margin-bottom: 18px; }
+
+/* Smoother checkboxes */
+.task-check {
+  transition: background .12s, border-color .12s, transform .1s;
+}
+.task-check:active { transform: scale(.9); }
+
+/* Better empty states */
+.empty-state { padding: 32px 20px; }
+
+/* Work board tighter gap on mobile */
+@media (max-width: 600px) {
+  .work-tabs { display: none; }  /* shown inline in Work header instead */
+  .page-header { gap: 10px; flex-wrap: wrap; }
+}
