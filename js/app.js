@@ -284,6 +284,7 @@ function renderWork() {
   const projects = DB.get('projects');
   const allTasks = DB.get('tasks');
 
+  try {
   main().innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
@@ -304,6 +305,11 @@ function renderWork() {
       : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>
          ${workSummaryHTML(projects, allTasks)}`}
   `;
+  } catch(err) {
+    main().innerHTML = '<div style="padding:40px;color:red;font-family:monospace"><strong>Render error:</strong><br>' + err.message + '<br><pre>' + (err.stack||'').slice(0,500) + '</pre></div>';
+    console.error('renderWork error:', err);
+    return;
+  }
 
   document.querySelectorAll('[data-work-view]').forEach(btn => {
     btn.onclick = () => {
