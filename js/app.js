@@ -324,6 +324,41 @@ function renderWork() {
     };
   });
 
+  // Summary week calendar — drag and drop to reschedule
+  let _dragTaskId = null;
+  document.querySelectorAll('.swc-task[draggable]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      _dragTaskId = card.dataset.taskId;
+      card.classList.add('swc-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('swc-dragging');
+      document.querySelectorAll('.swc-col').forEach(c => c.classList.remove('swc-drop-over'));
+    });
+  });
+  document.querySelectorAll('.swc-col').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.swc-col').forEach(c => c.classList.remove('swc-drop-over'));
+      col.classList.add('swc-drop-over');
+    });
+    col.addEventListener('dragleave', e => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('swc-drop-over');
+    });
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('swc-drop-over');
+      if (!_dragTaskId) return;
+      const colDate = col.dataset.colDate; // 'none' or 'YYYY-MM-DD'
+      const newDue = colDate === 'none' ? null : colDate;
+      DB.update('tasks', _dragTaskId, { dueDate: newDue });
+      _dragTaskId = null;
+      render();
+    });
+  });
+
   // Task checkboxes
   document.querySelectorAll('[data-check-id]').forEach(el => {
     el.onclick = () => {
@@ -460,10 +495,10 @@ function workSummaryHTML(projects, allTasks) {
     const proj  = projects.find(p => p.id === t.projectId);
     const color = proj ? (proj.color || '#6366F1') : '#6366F1';
     const overdue = t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < now.getTime();
-    return '<div class="swc-task" data-summary-check="' + t.id + '">' +
+    return '<div class="swc-task" draggable="true" data-task-id="' + t.id + '" data-summary-check="' + t.id + '">' +
       '<div class="swc-stripe" style="background:' + color + '"></div>' +
       '<div class="swc-body">' +
-        '<div class="swc-name' + (overdue ? ' overdue' : '') + '">' + escHtml(t.title) + '</div>' +
+        '<div class="swc-name' + (overdue ? ' overdue' : '') + '">' + escHtml(t.title) + (overdue ? ' <span class="swc-overdue-tag">overdue</span>' : '') + '</div>' +
         (proj ? '<div class="swc-proj">' + escHtml(proj.name) + '</div>' : '') +
       '</div>' +
       '<button class="swc-check" title="Done">' +
@@ -472,8 +507,9 @@ function workSummaryHTML(projects, allTasks) {
     '</div>';
   }
 
-  const colsHTML = cols.map(col =>
-    '<div class="swc-col' + (col.key === 'today' ? ' today' : '') + '">' +
+  const colsHTML = cols.map((col, ci) => {
+    const colDate = col.key === 'none' ? 'none' : dayStr(ci - 1);
+    return '<div class="swc-col' + (col.key === 'today' ? ' today' : '') + '" data-col-date="' + colDate + '">' +
       '<div class="swc-col-head">' +
         '<div class="swc-col-title">' + col.label + '</div>' +
         (col.sub ? '<div class="swc-col-sub">' + col.sub + '</div>' : '') +
@@ -483,7 +519,7 @@ function workSummaryHTML(projects, allTasks) {
         (col.tasks.length ? col.tasks.map(taskCard).join('') : '<div class="swc-empty">—</div>') +
       '</div>' +
     '</div>'
-  ).join('');
+  }).join('');
 
   return '<div class="work-summary"><div class="swc-grid">' + colsHTML + '</div></div>';
 }
@@ -1489,16 +1525,80 @@ function habitCompletionRate(habit, days) {
 }
 
 function markHabitDone(id) {
+  toggleHabitDate(id, new Date().toISOString().slice(0, 10));
+}
+
+function toggleHabitDate(id, dateStr) {
   const habit = DB.get('habits').find(h => h.id === id);
   if (!habit) return;
-  const todayStr = new Date().toISOString().slice(0, 10);
   const done = habitDoneDays(habit);
-  if (done.has(todayStr)) {
-    const updated = (habit.history || []).filter(ts => new Date(ts).toISOString().slice(0, 10) !== todayStr);
+  if (done.has(dateStr)) {
+    const updated = (habit.history || []).filter(ts => new Date(ts).toISOString().slice(0, 10) !== dateStr);
     DB.update('habits', id, { history: updated });
   } else {
-    DB.update('habits', id, { history: [...(habit.history || []), Date.now()] });
+    // Store timestamp at noon of that date so it sorts correctly
+    const ts = new Date(dateStr + 'T12:00:00').getTime();
+    DB.update('habits', id, { history: [...(habit.history || []), ts] });
   }
+}
+
+function openHabitImportModal(habitId) {
+  const habit = DB.get('habits').find(h => h.id === habitId);
+  if (!habit) return;
+  openModal('Import Past Dates — ' + habit.name,
+    '<div style="margin-bottom:12px;color:var(--text-2);font-size:.85rem">Paste dates one per line. Accepted formats: <code>2025-01-15</code> or <code>Jan 15 2025</code> or <code>15/01/2025</code></div>' +
+    '<textarea class="form-input" id="import-dates-ta" rows="12" placeholder="2025-01-01&#10;2025-01-03&#10;2025-01-05&#10;..." style="font-family:monospace;font-size:.82rem;resize:vertical"></textarea>' +
+    '<div id="import-preview" style="margin-top:8px;font-size:.78rem;color:var(--text-3)"></div>' +
+    '<div class="form-actions"><button class="btn-secondary" id="modal-cancel">Cancel</button>' +
+    '<button class="btn-primary" id="modal-save">Import</button></div>'
+  );
+
+  const ta = document.getElementById('import-dates-ta');
+  const preview = document.getElementById('import-preview');
+  const existingDone = habitDoneDays(habit);
+
+  function parseDates(raw) {
+    const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const valid = [], skipped = [];
+    lines.forEach(line => {
+      let d = null;
+      // Try YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(line)) d = new Date(line + 'T12:00:00');
+      // Try MM/DD/YYYY or DD/MM/YYYY — attempt both, pick whichever is valid date in range
+      else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(line)) {
+        const parts = line.split('/');
+        const attempt = new Date(parts[2] + '-' + parts[0].padStart(2,'0') + '-' + parts[1].padStart(2,'0') + 'T12:00:00');
+        if (!isNaN(attempt)) d = attempt;
+      }
+      // Try natural language via Date.parse
+      else { const p = new Date(line); if (!isNaN(p)) d = p; }
+
+      if (d && !isNaN(d)) {
+        const s = d.toISOString().slice(0,10);
+        if (existingDone.has(s)) skipped.push(s + ' (already logged)');
+        else valid.push({ s, ts: new Date(s + 'T12:00:00').getTime() });
+      } else {
+        skipped.push(line + ' (unrecognized)');
+      }
+    });
+    return { valid, skipped };
+  }
+
+  ta.oninput = () => {
+    const { valid, skipped } = parseDates(ta.value);
+    preview.textContent = valid.length + ' dates to import' + (skipped.length ? ', ' + skipped.length + ' skipped' : '') + '.';
+  };
+
+  document.getElementById('modal-cancel').onclick = closeModal;
+  document.getElementById('modal-save').onclick = () => {
+    const { valid } = parseDates(ta.value);
+    if (!valid.length) return;
+    const newHistory = [...(habit.history || []), ...valid.map(v => v.ts)];
+    DB.update('habits', habitId, { history: newHistory });
+    closeModal();
+    renderHabitDetail();
+  };
+  ta.focus();
 }
 
 function renderHabitsPanel() {
@@ -1640,10 +1740,11 @@ function renderHabitDetail() {
           </div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="task-action-btn" id="edit-habit-btn" title="Edit">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
+        <button class="btn-secondary" id="habit-import-btn" style="font-size:.78rem;padding:6px 12px">📥 Import dates</button>
         <button class="habit-mark-btn ${doneToday ? 'done' : ''}" id="habit-done-now"
           style="${doneToday ? 'background:' + color + ';border-color:' + color + ';color:#fff' : 'border-color:' + color + ';color:' + color}">
           ${doneToday ? '✓ Done today' : '○ Mark done today'}
@@ -1725,6 +1826,15 @@ function renderHabitDetail() {
   document.getElementById('btn-back-habit').onclick = () => { state.activeHabit = null; state.personalTab = 'habits'; renderPersonal(); };
   document.getElementById('edit-habit-btn').onclick = () => { const h = DB.get('habits').find(x => x.id === state.activeHabit); if (h) openHabitModal(h); };
   document.getElementById('habit-done-now').onclick = () => { markHabitDone(state.activeHabit); renderHabitDetail(); };
+  document.getElementById('habit-import-btn').onclick = () => openHabitImportModal(state.activeHabit);
+
+  // Clickable year-graph cells
+  document.querySelectorAll('.year-cell[data-date]').forEach(cell => {
+    cell.onclick = () => {
+      toggleHabitDate(state.activeHabit, cell.dataset.date);
+      renderHabitDetail();
+    };
+  });
 }
 
 function yearlyGraph(habit, color) {
@@ -1764,7 +1874,8 @@ function yearlyGraph(habit, color) {
         ${weeks.map(cells => '<div class="year-week">' + cells.map(c => {
           let bg = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
           const ring = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
-          return '<div class="year-cell" style="background:' + bg + ring + '" title="' + c.s + (c.isDone ? ' ✓' : '') + '"></div>';
+          const clickable = !c.isFuture ? ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer"' : ' style="background:' + bg + '"';
+          return '<div class="year-cell"' + clickable + ' title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
         }).join('') + '</div>').join('')}
       </div>
     </div>

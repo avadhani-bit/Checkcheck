@@ -1390,6 +1390,27 @@ body.dark .form-input {
   text-align: center;
 }
 
+/* Drag states */
+.swc-task[draggable] { cursor: grab; }
+.swc-task.swc-dragging { opacity: .4; cursor: grabbing; }
+.swc-col.swc-drop-over { background: var(--accent-light); border-radius: 10px; }
+.swc-col.swc-drop-over .swc-col-head { border-bottom-color: var(--accent); }
+
+/* Overdue tag */
+.swc-overdue-tag {
+  display: inline-block;
+  font-size: .6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  background: var(--red-light);
+  color: var(--red);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 @media (max-width: 700px) {
   .swc-grid { grid-template-columns: repeat(3, 1fr); }
   .swc-col:nth-child(4), .swc-col:nth-child(5) { display: none; }
