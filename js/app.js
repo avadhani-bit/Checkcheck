@@ -129,18 +129,15 @@ function applyTimeBasedTheme() {
 
 const state = {
   mode:          'work',     // 'work' | 'personal'
-  activeProject: null,
-  activeChore:   null,
+  activeProject: null,       // project id when in completed-task detail
+  activeChore:   null,       // chore id when in chore history detail
   personalTab:   'todo',     // 'todo' | 'shopping' | 'chores' | 'habits'
-  activeHabit:   null,
+  activeHabit:   null,       // habit id when in habit detail
   workView:      'board',    // 'board' | 'reports'
   reportMonth:   new Date().getMonth(),
   reportYear:    new Date().getFullYear(),
   projectMonth:  new Date().getMonth(),
   projectYear:   new Date().getFullYear(),
-  habitGraphView:  'year',   // 'year' | 'month'
-  habitGraphYear:  new Date().getFullYear(),
-  habitGraphMonth: new Date().getMonth(),
 };
 
 // ─── RENDER ───────────────────────────────────────────────────────
@@ -284,7 +281,6 @@ function renderWork() {
   const projects = DB.get('projects');
   const allTasks = DB.get('tasks');
 
-  try {
   main().innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
@@ -305,11 +301,6 @@ function renderWork() {
       : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>
          ${workSummaryHTML(projects, allTasks)}`}
   `;
-  } catch(err) {
-    main().innerHTML = '<div style="padding:40px;color:red;font-family:monospace"><strong>Render error:</strong><br>' + err.message + '<br><pre>' + (err.stack||'').slice(0,500) + '</pre></div>';
-    console.error('renderWork error:', err);
-    return;
-  }
 
   document.querySelectorAll('[data-work-view]').forEach(btn => {
     btn.onclick = () => {
@@ -473,12 +464,9 @@ function workSummaryHTML(projects, allTasks) {
   const open  = allTasks.filter(t => !t.done);
 
   // Build day buckets: no-date, today, tomorrow, +2, +3
-  function ldate(d) {
-    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  }
   function dayStr(offsetDays) {
     const d = new Date(now); d.setDate(d.getDate() + offsetDays);
-    return ldate(d);
+    return d.toISOString().slice(0,10);
   }
   const todayStr = dayStr(0);
   const cols = [
@@ -492,11 +480,12 @@ function workSummaryHTML(projects, allTasks) {
   cols[3].label = new Date(now.getTime()+2*86400000).toLocaleDateString('en-US',{weekday:'long'});
   cols[4].label = new Date(now.getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'long'});
 
-  // Overdue + today both go in Today column
+  // Overdue bucket shows in today column
   open.forEach(t => {
     if (!t.dueDate) { cols[0].tasks.push(t); return; }
-    const s = t.dueDate; // already YYYY-MM-DD string
-    if (s <= todayStr)        cols[1].tasks.push(t);
+    const ds = new Date(t.dueDate); ds.setHours(0,0,0,0);
+    const s  = ds.toISOString().slice(0,10);
+    if (s <= todayStr)      cols[1].tasks.push(t);
     else if (s === dayStr(1)) cols[2].tasks.push(t);
     else if (s === dayStr(2)) cols[3].tasks.push(t);
     else if (s === dayStr(3)) cols[4].tasks.push(t);
@@ -505,7 +494,7 @@ function workSummaryHTML(projects, allTasks) {
   function taskCard(t) {
     const proj  = projects.find(p => p.id === t.projectId);
     const color = proj ? (proj.color || '#6366F1') : '#6366F1';
-    const overdue = t.dueDate && t.dueDate < todayStr;
+    const overdue = t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < now.getTime();
     return '<div class="swc-task" draggable="true" data-task-id="' + t.id + '" data-summary-check="' + t.id + '">' +
       '<div class="swc-stripe" style="background:' + color + '"></div>' +
       '<div class="swc-body">' +
@@ -1810,31 +1799,9 @@ function renderHabitDetail() {
       </div>
     </div>
 
-    <div class="card" style="padding:18px 20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-        <div style="display:flex;gap:4px;background:var(--surface-2);border-radius:8px;padding:3px">
-          <button class="habit-graph-tab ${state.habitGraphView === 'year' ? 'active' : ''}" id="hgt-year">Year</button>
-          <button class="habit-graph-tab ${state.habitGraphView === 'month' ? 'active' : ''}" id="hgt-month">Month</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="month-nav-btn" id="hg-prev">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <span id="hg-label" style="font-size:.85rem;font-weight:600;color:var(--text-2);min-width:100px;text-align:center">
-            ${state.habitGraphView === 'year'
-              ? state.habitGraphYear
-              : new Date(state.habitGraphYear, state.habitGraphMonth, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}
-          </span>
-          <button class="month-nav-btn" id="hg-next">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div id="habit-graph-body" style="overflow-x:auto">
-        ${state.habitGraphView === 'year'
-          ? yearlyGraph(habit, color, state.habitGraphYear)
-          : monthGraph(habit, color, state.habitGraphYear, state.habitGraphMonth)}
-      </div>
+    <div class="card" style="padding:18px 20px;overflow-x:auto">
+      <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:14px">Year in review</div>
+      ${yearlyGraph(habit, color)}
     </div>
 
     <div class="card">
@@ -1861,34 +1828,8 @@ function renderHabitDetail() {
   document.getElementById('habit-done-now').onclick = () => { markHabitDone(state.activeHabit); renderHabitDetail(); };
   document.getElementById('habit-import-btn').onclick = () => openHabitImportModal(state.activeHabit);
 
-  // Graph tab switcher
-  document.getElementById('hgt-year').onclick = () => { state.habitGraphView = 'year'; renderHabitDetail(); };
-  document.getElementById('hgt-month').onclick = () => { state.habitGraphView = 'month'; renderHabitDetail(); };
-
-  // Graph prev/next navigation
-  const now = new Date();
-  document.getElementById('hg-prev').onclick = () => {
-    if (state.habitGraphView === 'year') {
-      state.habitGraphYear--;
-    } else {
-      if (state.habitGraphMonth === 0) { state.habitGraphMonth = 11; state.habitGraphYear--; }
-      else state.habitGraphMonth--;
-    }
-    renderHabitDetail();
-  };
-  document.getElementById('hg-next').onclick = () => {
-    if (state.habitGraphView === 'year') {
-      if (state.habitGraphYear < now.getFullYear()) state.habitGraphYear++;
-    } else {
-      if (state.habitGraphYear === now.getFullYear() && state.habitGraphMonth >= now.getMonth()) return;
-      if (state.habitGraphMonth === 11) { state.habitGraphMonth = 0; state.habitGraphYear++; }
-      else state.habitGraphMonth++;
-    }
-    renderHabitDetail();
-  };
-
-  // Clickable graph cells (both year and month views use data-date)
-  document.querySelectorAll('[data-date]').forEach(cell => {
+  // Clickable year-graph cells
+  document.querySelectorAll('.year-cell[data-date]').forEach(cell => {
     cell.onclick = () => {
       toggleHabitDate(state.activeHabit, cell.dataset.date);
       renderHabitDetail();
@@ -1896,38 +1837,24 @@ function renderHabitDetail() {
   });
 }
 
-function ldStr(d) {
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-function yearlyGraph(habit, color, year) {
+function yearlyGraph(habit, color) {
   const done   = habitDoneDays(habit);
-  const today  = new Date(); today.setHours(0,0,0,0);
-  const todayStr = ldStr(today);
-  // Calendar year: start from Jan 1, pad to Sunday
-  const jan1 = new Date(year, 0, 1);
-  const startPad = jan1.getDay(); // 0=Sun
-  const start = new Date(jan1); start.setDate(1 - startPad);
-  // End at Dec 31, pad to Saturday
-  const dec31 = new Date(year, 11, 31);
-  const endPad = 6 - dec31.getDay();
-  const totalDays = startPad + 365 + (((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 1 : 0) + endPad;
-  const totalWeeks = Math.ceil(totalDays / 7);
-
+  const today  = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364 - start.getDay());
   const weeks = []; const monthLabels = [];
   let cur = new Date(start); let lastMonth = -1;
-  for (let w = 0; w < totalWeeks; w++) {
+  for (let w = 0; w < 53; w++) {
     const cells = [];
     for (let d = 0; d < 7; d++) {
-      const s = ldStr(cur);
-      const inYear = cur.getFullYear() === year;
+      const s = cur.toISOString().slice(0, 10);
       const isFuture = cur > today;
-      const isDone = inYear && !isFuture && done.has(s);
+      const isDone = !isFuture && done.has(s);
       const isToday = s === todayStr;
-      const isTarget = inYear && isHabitTargetDay(habit, cur);
-      const isOob = !inYear;
-      cells.push({ s, isDone, isFuture, isToday, isTarget, isOob });
-      if (d === 0 && inYear && cur.getMonth() !== lastMonth) {
+      const isTarget = isHabitTargetDay(habit, cur);
+      cells.push({ s, isDone, isFuture, isToday, isTarget });
+      if (d === 0 && cur.getMonth() !== lastMonth && !isFuture) {
         monthLabels.push({ week: w, label: cur.toLocaleDateString('en-US', { month: 'short' }) });
         lastMonth = cur.getMonth();
       }
@@ -1935,69 +1862,32 @@ function yearlyGraph(habit, color, year) {
     }
     weeks.push(cells);
   }
+  const cs = 11, gap = 2;
   const dayLabels = ['S','M','T','W','T','F','S'];
-  const monthRow = Array(totalWeeks).fill('');
+  const monthRow = Array(53).fill('');
   monthLabels.forEach(ml => { monthRow[ml.week] = ml.label; });
-  return '<div class="year-graph-wrap">' +
-    '<div class="year-graph-months">' + monthRow.map(l => '<span>' + l + '</span>').join('') + '</div>' +
-    '<div class="year-graph-body">' +
-      '<div class="year-day-labels">' + dayLabels.map((l, i) => '<div class="year-day-lbl">' + (i % 2 === 1 ? l : '') + '</div>').join('') + '</div>' +
-      '<div class="year-weeks">' +
-        weeks.map(cells => '<div class="year-week">' + cells.map(c => {
-          if (c.isOob) return '<div class="year-cell" style="background:transparent"></div>';
+  return `<div class="year-graph-wrap">
+    <div class="year-graph-months">${monthRow.map(l => '<span>' + l + '</span>').join('')}</div>
+    <div class="year-graph-body">
+      <div class="year-day-labels">${dayLabels.map((l, i) => '<div class="year-day-lbl">' + (i % 2 === 1 ? l : '') + '</div>').join('')}</div>
+      <div class="year-weeks">
+        ${weeks.map(cells => '<div class="year-week">' + cells.map(c => {
           let bg = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
           const ring = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
-          const clickable = (!c.isFuture && !c.isOob) ? ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer"' : ' style="background:' + bg + '"';
+          const clickable = !c.isFuture ? ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer"' : ' style="background:' + bg + '"';
           return '<div class="year-cell"' + clickable + ' title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
-        }).join('') + '</div>').join('') +
-      '</div>' +
-    '</div>' +
-    '<div class="year-legend"><span>Less</span>' +
-      '<div class="year-cell" style="background:var(--surface-2)"></div>' +
-      '<div class="year-cell" style="background:' + color + ';opacity:.35"></div>' +
-      '<div class="year-cell" style="background:' + color + ';opacity:.65"></div>' +
-      '<div class="year-cell" style="background:' + color + '"></div>' +
-    '<span>More</span></div>' +
-  '</div>';
-}
-
-function monthGraph(habit, color, year, month) {
-  const done = habitDoneDays(habit);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayStr = ldStr(today);
-  const firstDay = new Date(year, month, 1);
-  const lastDay  = new Date(year, month+1, 0);
-  const startPad = firstDay.getDay(); // 0=Sun
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const monthName = firstDay.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-
-  let html = '<div class="month-graph">';
-  // Day name headers
-  html += '<div class="month-cal-grid">';
-  dayNames.forEach(dn => { html += '<div class="month-cal-hdr">' + dn + '</div>'; });
-  // Blank pads
-  for (let i = 0; i < startPad; i++) html += '<div class="month-cal-cell empty"></div>';
-  // Days
-  for (let day = 1; day <= lastDay.getDate(); day++) {
-    const cur = new Date(year, month, day);
-    const s = ldStr(cur);
-    const isFuture = cur > today;
-    const isDone = !isFuture && done.has(s);
-    const isToday = s === todayStr;
-    const isTarget = isHabitTargetDay(habit, cur);
-    let cls = 'month-cal-cell';
-    if (isToday) cls += ' today';
-    if (isDone) cls += ' done';
-    if (!isDone && !isFuture && !isTarget) cls += ' non-target';
-    const style = isDone ? 'background:' + color + ';border-color:' + color + ';color:#fff' :
-                  isToday ? 'border-color:' + color + ';color:' + color : '';
-    const attr = (!isFuture) ? ' data-date="' + s + '"' : '';
-    html += '<div class="' + cls + '"' + (style ? ' style="' + style + '"' : '') + attr +
-            ' title="' + s + (isDone ? ' ✓' : isFuture ? '' : ' — click to log') + '">' +
-            day + '</div>';
-  }
-  html += '</div></div>';
-  return html;
+        }).join('') + '</div>').join('')}
+      </div>
+    </div>
+    <div class="year-legend">
+      <span>Less</span>
+      <div class="year-cell" style="background:var(--surface-2)"></div>
+      <div class="year-cell" style="background:${color};opacity:.35"></div>
+      <div class="year-cell" style="background:${color};opacity:.65"></div>
+      <div class="year-cell" style="background:${color}"></div>
+      <span>More</span>
+    </div>
+  </div>`;
 }
 
 function openHabitModal(existing) {
