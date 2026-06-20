@@ -170,7 +170,8 @@ function renderWork() {
 
     ${projects.length === 0
       ? `<div class="empty-state"><div class="empty-state-icon">📁</div><p>No projects yet.<br>Hit <strong>New Project</strong> to get started.</p></div>`
-      : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>`}
+      : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>
+         ${workSummaryHTML(projects, allTasks)}`}
   `;
 
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
@@ -248,6 +249,70 @@ function renderWork() {
   });
 }
 
+function workSummaryHTML(projects, allTasks) {
+  const now  = new Date();
+  const y    = now.getFullYear(), m = now.getMonth();
+
+  const open  = allTasks.filter(t => !t.done);
+  const doneThisMonth = allTasks.filter(t => {
+    if (!t.done || !t.completedAt) return false;
+    const d = new Date(t.completedAt);
+    return d.getFullYear() === y && d.getMonth() === m;
+  });
+
+  // Due this week (Sun–Sat)
+  const startOfWeek = new Date(now); startOfWeek.setHours(0,0,0,0);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  const endOfWeek   = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 7);
+  const dueSoon = open.filter(t => {
+    if (!t.dueDate) return false;
+    const d = new Date(t.dueDate);
+    return d >= startOfWeek && d < endOfWeek;
+  }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+  const dueSoonRows = dueSoon.length === 0
+    ? ''
+    : `<div class="summary-due-list">
+        ${dueSoon.map(t => {
+          const proj = projects.find(p => p.id === t.projectId);
+          const color = proj ? (proj.color || '#6366F1') : '#6366F1';
+          return `<div class="summary-due-row">
+            <span class="summary-due-dot" style="background:${escHtml(color)}"></span>
+            <span class="summary-due-name">${escHtml(t.title)}</span>
+            <span class="summary-due-project">${proj ? escHtml(proj.name) : ''}</span>
+            <span class="summary-due-date">${fmt.dateShort(t.dueDate)}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+  return `
+  <div class="work-summary">
+    <div class="work-summary-stats">
+      <div class="ws-stat">
+        <div class="ws-stat-val">${open.length}</div>
+        <div class="ws-stat-lbl">Open tasks</div>
+      </div>
+      <div class="ws-stat">
+        <div class="ws-stat-val">${projects.length}</div>
+        <div class="ws-stat-lbl">Projects</div>
+      </div>
+      <div class="ws-stat">
+        <div class="ws-stat-val">${dueSoon.length}</div>
+        <div class="ws-stat-lbl">Due this week</div>
+      </div>
+      <div class="ws-stat">
+        <div class="ws-stat-val">${doneThisMonth.length}</div>
+        <div class="ws-stat-lbl">Done this month</div>
+      </div>
+    </div>
+    ${dueSoon.length > 0 ? `
+    <div class="work-summary-section">
+      <div class="work-summary-label">Due this week</div>
+      ${dueSoonRows}
+    </div>` : ''}
+  </div>`;
+}
+
 function quickAddTask(projectId, input) {
   const title = input.value.trim();
   if (!title) return;
@@ -263,7 +328,7 @@ function expandedProjectCard(p, allTasks) {
   const color     = p.color || '#6366F1';
 
   return `
-    <div class="project-expanded-card" style="--project-color:${escHtml(color)}">
+    <div class="project-expanded-card" style="border-top-color:${escHtml(color)}">
       <div class="project-expanded-header">
         <div class="project-expanded-title-row">
           <span class="project-color-dot" style="background:${escHtml(color)}"></span>
@@ -1373,7 +1438,7 @@ function init() {
   document.getElementById('modal-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
   });
-
+  document.getElementById('modal-close').onclick = closeModal;
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   render();
