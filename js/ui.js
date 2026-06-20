@@ -1,10 +1,20 @@
 import { state } from "./state.js";
 import { renderPage } from "./render.js";
 
-export function goPage(page){
+export function goPage(page) {
 
-state.currentPage = page;
+    state.currentPage = page;
 
-renderPage();
+    document.querySelectorAll(".nav-item")
+        .forEach(button => {
+
+            button.classList.remove("active");
+
+            if (button.dataset.page === page)
+                button.classList.add("active");
+
+        });
+
+    renderPage();
 
 }

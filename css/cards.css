@@ -39,3 +39,19 @@ flex:1;
 .task.done{
 opacity:.4;
 }
+.task{
+    justify-content:space-between;
+}
+
+.task-name{
+    flex:1;
+}
+
+.task:hover{
+    background:rgba(255,255,255,.03);
+    border-radius:12px;
+}
+
+.card{
+    max-width:800px;
+}
