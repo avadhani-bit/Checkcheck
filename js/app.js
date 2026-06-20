@@ -63,7 +63,7 @@ let reportMonthOffset = 0;  // 0 = current month, -1 = last month, etc.
 const userCol = name => collection(db, 'users', uid, name);
 const userDoc = (col, id) => doc(db, 'users', uid, col, id);
 const newId   = () => Math.random().toString(36).slice(2, 10);
-const today   = () => new Date().toISOString().slice(0, 10);
+const getToday = () => new Date().toISOString().slice(0, 10);
 
 // ── Auth ──────────────────────────────────────────────────
 document.getElementById('google-signin-btn').addEventListener('click', async () => {
@@ -247,7 +247,7 @@ function taskRowHTML(task, showDoneDate = false) {
 
   let dueChip = '';
   if (task.due && !isDone) {
-    const diff = daysDiff(task.due, today());
+    const diff = daysDiff(task.due, getToday());
     const cls  = diff < 0 ? 'due-late' : diff === 0 ? 'due-today' : 'due-ok';
     const lbl  = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : fmtDate(task.due);
     dueChip = `<span class="due-chip ${cls}">${lbl}</span>`;
@@ -274,7 +274,7 @@ async function toggleTaskDone(taskId) {
   const nowDone = !task.done;
   await updateDoc(userDoc('tasks', taskId), {
     done:   nowDone,
-    doneAt: nowDone ? today() : null
+    doneAt: nowDone ? getToday() : null
   });
 }
 
@@ -478,7 +478,7 @@ function renderTodos() {
   let html = open.map(t => {
     let dueChip = '';
     if (t.due) {
-      const diff = daysDiff(t.due, today());
+      const diff = daysDiff(t.due, getToday());
       const cls  = diff < 0 ? 'due-late' : diff === 0 ? 'due-today' : 'due-ok';
       const lbl  = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Today' : fmtDate(t.due);
       dueChip = `<span class="due-chip ${cls}">${lbl}</span>`;
@@ -537,13 +537,13 @@ async function toggleTodoDone(todoId) {
   const nowDone = !todo.done;
   await updateDoc(userDoc('todos', todoId), {
     done:   nowDone,
-    doneAt: nowDone ? today() : null
+    doneAt: nowDone ? getToday() : null
   });
 }
 
 // ══ CHORES ════════════════════════════════════════════════
 function choreStatus(chore) {
-  const daysAgo = dateDiffDays(chore.lastDone || today(), today());
+  const daysAgo = dateDiffDays(chore.lastDone || getToday(), getToday());
   const pct     = Math.min(100, Math.round(daysAgo / chore.freq * 100));
   return {
     daysAgo,
@@ -605,10 +605,10 @@ function renderChores() {
 async function markChoreDone(choreId) {
   const chore = chores.find(c => c.id === choreId);
   if (!chore) return;
-  const daysAgo = dateDiffDays(chore.lastDone || today(), today());
-  const newHistory = [...(chore.history || []), { date: today(), days: daysAgo }].slice(-20);
+  const daysAgo = dateDiffDays(chore.lastDone || getToday(), getToday());
+  const newHistory = [...(chore.history || []), { date: getToday(), days: daysAgo }].slice(-20);
   await updateDoc(userDoc('chores', choreId), {
-    lastDone: today(),
+    lastDone: getToday(),
     history:  newHistory
   });
   showToast('Marked done ✓');
@@ -894,7 +894,7 @@ document.getElementById('save-todo-btn').addEventListener('click', async () => {
 });
 
 // Chore
-document.getElementById('chore-last-input').value = today();
+document.getElementById('chore-last-input').value = getToday();
 document.getElementById('save-chore-btn').addEventListener('click', async () => {
   const name = document.getElementById('chore-name-input').value.trim();
   if (!name) return;
@@ -902,7 +902,7 @@ document.getElementById('save-chore-btn').addEventListener('click', async () => 
   await setDoc(doc(userCol('chores'), newId()), {
     name,
     freq:     parseInt(document.getElementById('chore-freq-select').value),
-    lastDone: document.getElementById('chore-last-input').value || today(),
+    lastDone: document.getElementById('chore-last-input').value || getToday(),
     history:  [],
     createdAt: serverTimestamp()
   });
@@ -966,7 +966,7 @@ function showToast(msg) {
 }
 
 // ══ DATE UTILS ════════════════════════════════════════════
-function today()  { return new Date().toISOString().slice(0,10); }
+
 function monthKey(offset) {
   const d = new Date();
   d.setMonth(d.getMonth() + offset);
