@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#16161A"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="icon.svg"/>
+<title>Checkcheck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/app.css"/>
+</head>
+<body>
+
+<!-- ══ AUTH ══ -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="auth-mark">✓✓</span></div>
+    <h1 class="auth-title">Checkcheck</h1>
+    <p class="auth-sub">Your day, done.</p>
+    <button class="google-btn" id="google-signin-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
+    <p class="auth-note">Your data is private and synced to your account only.</p>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="app" class="app hidden">
+
+  <!-- DESKTOP SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand" style="font-size:20px">✓✓</span>
+      <span class="sidebar-brand-name">Checkcheck</span>
+    </div>
+
+    <div class="sidebar-section-label">Work</div>
+    <button class="sidebar-item active" data-sidebar="work">
+      <span class="sidebar-icon">📋</span> All Projects
+    </button>
+    <button class="sidebar-item" data-sidebar="monthly">
+      <span class="sidebar-icon">📊</span> Monthly Report
+    </button>
+
+    <div class="sidebar-section-label">Personal</div>
+    <button class="sidebar-item" data-sidebar="shopping">
+      <span class="sidebar-icon">🛒</span> Shopping
+    </button>
+    <button class="sidebar-item" data-sidebar="todo">
+      <span class="sidebar-icon">✅</span> To-do
+    </button>
+    <button class="sidebar-item" data-sidebar="chores">
+      <span class="sidebar-icon">🧹</span> Chores
+    </button>
+
+    <div class="sidebar-bottom">
+      <button class="sidebar-user" id="sidebar-user-btn">
+        <img id="sidebar-avatar" src="" alt="" class="sidebar-avi"/>
+        <span id="sidebar-name" class="sidebar-user-name"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="main-area">
+
+    <!-- ── SCREEN: MAIN (mobile) ── -->
+    <div class="screen on" id="screen-main">
+      <header class="topbar">
+        <div class="topbar-logo"><span class="brand">✓✓</span></div>
+        <div class="seg">
+          <button class="seg-btn on" data-tab="work">Work</button>
+          <button class="seg-btn" data-tab="personal">Personal</button>
+        </div>
+        <button class="avi-btn" id="avi-btn"><img id="user-avatar" src="" alt=""/></button>
+      </header>
+
+      <!-- WORK VIEW -->
+      <div class="tab-view on" id="view-work">
+        <div class="scroll-area">
+          <div class="greet-strip">
+            <div>
+              <div class="greet-main" id="greet-text"></div>
+              <div class="greet-date" id="greet-date"></div>
+            </div>
+            <div class="greet-actions">
+              <button class="pill-btn-ghost" id="monthly-report-btn" title="Monthly report across all projects">📊</button>
+              <button class="pill-btn" id="new-proj-btn">+ Project</button>
+            </div>
+          </div>
+          <div id="projects-list"></div>
+          <div id="work-empty" class="empty-state hidden">
+            <div class="empty-icon">🗂</div>
+            <p>No projects yet.<br/>Tap <strong>+ Project</strong> to start.</p>
+          </div>
+        </div>
+        <button class="fab" id="work-fab">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#16161A" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- PERSONAL VIEW -->
+      <div class="tab-view" id="view-personal">
+        <div class="scroll-area">
+          <div class="subtabs">
+            <button class="stab on" data-sub="shopping">🛒 Shopping</button>
+            <button class="stab" data-sub="todo">✅ To-do</button>
+            <button class="stab" data-sub="chores">🧹 Chores</button>
+          </div>
+          <div id="sub-shopping">
+            <div class="sec-card">
+              <div class="sec-hd">
+                <span class="sec-label">Shopping list</span>
+                <button class="share-btn" id="share-shopping-btn">Share ↗</button>
+              </div>
+              <div id="shopping-list-items"></div>
+              <div id="shopping-empty" class="list-empty hidden">Nothing on the list yet.</div>
+            </div>
+          </div>
+          <div id="sub-todo" class="hidden">
+            <div class="proj-card"><div class="proj-body" id="todo-open-list"></div></div>
+            <div id="todo-empty" class="empty-state hidden"><div class="empty-icon">✅</div><p>All clear!</p></div>
+          </div>
+          <div id="sub-chores" class="hidden">
+            <div id="chores-list"></div>
+            <div id="chores-empty" class="empty-state hidden"><div class="empty-icon">🧹</div><p>No chores yet.<br/>Tap <strong>+</strong> to add one.</p></div>
+          </div>
+        </div>
+        <button class="fab" id="personal-fab">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#16161A" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div><!-- /screen-main -->
+
+    <!-- ── SCREEN: ALL-PROJECTS MONTHLY REPORT ── -->
+    <div class="screen" id="screen-monthly">
+      <div class="back-bar">
+        <button class="back-btn" id="monthly-back">‹ Work</button>
+        <span class="back-title">Monthly Report</span>
+        <div style="width:60px"></div>
+      </div>
+      <div class="scroll-area">
+        <div class="month-nav-row" style="padding-top:16px">
+          <button class="month-nav-btn" id="all-month-prev">‹</button>
+          <span class="month-label" id="all-month-label"></span>
+          <button class="month-nav-btn" id="all-month-next">›</button>
+        </div>
+        <div class="report-summary-bar" id="all-report-summary-bar"></div>
+        <div id="all-report-content"></div>
+        <div style="padding:0 12px 12px">
+          <button class="copy-btn-lg" id="copy-all-btn">Copy full report ↗</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: PROJECT DETAIL ── -->
+    <div class="screen" id="screen-project">
+      <div class="back-bar">
+        <button class="back-btn" id="proj-back">‹ Work</button>
+        <span class="back-title" id="proj-detail-name"></span>
+        <button class="back-action" id="proj-view-toggle">Monthly</button>
+      </div>
+      <div class="scroll-area" id="proj-detail-scroll">
+        <div id="proj-tasks-view">
+          <div class="proj-stats-row" id="proj-stats-row"></div>
+          <div class="sec-label-pad">Open</div>
+          <div class="proj-card"><div class="proj-body" id="proj-open-list"></div></div>
+          <div class="sec-label-pad">Completed</div>
+          <div class="proj-card"><div class="proj-body" id="proj-done-list"></div></div>
+        </div>
+        <div id="proj-report-view" class="hidden">
+          <div class="month-nav-row">
+            <button class="month-nav-btn" id="month-prev">‹</button>
+            <span class="month-label" id="month-label"></span>
+            <button class="month-nav-btn" id="month-next">›</button>
+          </div>
+          <div class="report-card">
+            <div class="report-hd">
+              <span class="report-title" id="report-title"></span>
+              <button class="copy-btn" id="copy-btn">Copy ↗</button>
+            </div>
+            <div id="report-rows"></div>
+            <div class="report-summary" id="report-summary"></div>
+          </div>
+        </div>
+      </div>
+      <button class="fab" id="proj-fab">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="#16161A" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- ── SCREEN: CHORE DETAIL ── -->
+    <div class="screen" id="screen-chore">
+      <div class="back-bar">
+        <button class="back-btn" id="chore-back">‹ Chores</button>
+        <span class="back-title" id="chore-detail-name"></span>
+      </div>
+      <div class="scroll-area">
+        <div class="chore-hero">
+          <div class="chore-hero-name" id="chore-hero-name"></div>
+          <div class="chore-hero-sub" id="chore-hero-sub"></div>
+        </div>
+        <div class="stats-row" id="chore-stats-row"></div>
+        <div class="trend-card">
+          <div class="trend-label">Days between completions</div>
+          <div class="chart-wrap"><canvas id="trend-canvas"></canvas></div>
+          <div class="chart-legend">
+            <span class="leg-item"><span class="leg-dot" style="background:var(--accent)"></span>Actual</span>
+            <span class="leg-item"><span class="leg-dot" style="background:var(--s4)"></span>Target</span>
+          </div>
+        </div>
+        <div class="heatmap-card">
+          <div class="trend-label">Last 12 weeks</div>
+          <div class="heatmap-grid" id="heatmap-grid"></div>
+          <div class="heatmap-axis"><span>12 weeks ago</span><span>This week</span></div>
+          <div class="hm-legend">
+            <span class="hm-leg-label">Less</span>
+            <span class="hm-swatch hm-0"></span><span class="hm-swatch hm-1"></span>
+            <span class="hm-swatch hm-2"></span><span class="hm-swatch hm-3"></span>
+            <span class="hm-leg-label">More</span>
+          </div>
+        </div>
+        <div class="sec-label-pad">History</div>
+        <div class="log-card" id="chore-log"></div>
+      </div>
+    </div>
+
+    <!-- ── SCREEN: USER ── -->
+    <div class="screen" id="screen-user">
+      <div class="back-bar">
+        <button class="back-btn" id="user-back">‹ Back</button>
+        <span class="back-title">Account</span>
+      </div>
+      <div class="scroll-area" style="padding:20px 16px">
+        <div class="user-card">
+          <img id="user-menu-avatar" src="" alt="" class="user-menu-avi"/>
+          <div>
+            <div class="user-menu-name" id="user-menu-name"></div>
+            <div class="user-menu-email" id="user-menu-email"></div>
+          </div>
+        </div>
+        <button class="danger-btn" id="signout-btn">Sign out</button>
+      </div>
+    </div>
+
+  </div><!-- /main-area -->
+</div><!-- /app -->
+
+<!-- ══ SHEETS ══ -->
+<div class="sheet-overlay" id="sheet-task">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">New task</h2>
+    <input class="sheet-input big" id="task-name-input" placeholder="What needs to get done?" autocomplete="off"/>
+    <div class="field-label">Project</div>
+    <select class="sheet-select" id="task-project-select"></select>
+    <div class="field-label">Tags</div>
+    <div class="tag-row" id="task-tag-picker">
+      <span class="tag-pill" data-tag="task">Task</span>
+      <span class="tag-pill" data-tag="followup">Follow-up</span>
+      <span class="tag-pill" data-tag="review">Review</span>
+      <span class="tag-pill" data-tag="meeting">Meeting</span>
+      <span class="tag-pill" data-tag="urgent">Urgent</span>
+    </div>
+    <div class="field-label">Due date <span style="color:var(--t3);font-weight:400">(optional)</span></div>
+    <input class="sheet-input" type="date" id="task-due-input"/>
+    <div class="field-label">Note <span style="color:var(--t3);font-weight:400">(optional)</span></div>
+    <textarea class="sheet-input" id="task-note-input" rows="2" placeholder="Optional note…"></textarea>
+    <button class="sheet-cta" id="save-task-btn">Add task</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheet-project">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">New project</h2>
+    <input class="sheet-input big" id="proj-name-input" placeholder="Project name" autocomplete="off"/>
+    <div class="field-label">Color</div>
+    <div class="color-row" id="color-picker">
+      <span class="color-dot active" data-color="#8B7FFA" style="background:#8B7FFA"></span>
+      <span class="color-dot" data-color="#FFAD3A" style="background:#FFAD3A"></span>
+      <span class="color-dot" data-color="#2EE89A" style="background:#2EE89A"></span>
+      <span class="color-dot" data-color="#FF7070" style="background:#FF7070"></span>
+      <span class="color-dot" data-color="#EC4899" style="background:#EC4899"></span>
+      <span class="color-dot" data-color="#38BDF8" style="background:#38BDF8"></span>
+      <span class="color-dot" data-color="#A855F7" style="background:#A855F7"></span>
+      <span class="color-dot" data-color="#F97316" style="background:#F97316"></span>
+    </div>
+    <button class="sheet-cta" id="save-proj-btn">Create project</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheet-item">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Add item</h2>
+    <input class="sheet-input big" id="item-name-input" placeholder="What do you need?" autocomplete="off"/>
+    <button class="sheet-cta" id="save-item-btn">Add to list</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheet-todo">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">New to-do</h2>
+    <input class="sheet-input big" id="todo-name-input" placeholder="What do you need to do?" autocomplete="off" autofocus/>
+    <button class="sheet-expand-toggle" id="todo-expand-btn">
+      <span class="tog-arrow">›</span> Add due date or note
+    </button>
+    <div class="sheet-expandable" id="todo-extras">
+      <div class="field-label">Due date</div>
+      <input class="sheet-input" type="date" id="todo-due-input"/>
+      <div class="field-label">Note</div>
+      <textarea class="sheet-input" id="todo-note-input" rows="2" placeholder="Optional note…"></textarea>
+    </div>
+    <button class="sheet-cta" id="save-todo-btn">Add to-do</button>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheet-chore">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Add chore</h2>
+    <input class="sheet-input big" id="chore-name-input" placeholder="e.g. Clean the patio" autocomplete="off"/>
+    <div class="field-label">Repeat every</div>
+    <select class="sheet-select" id="chore-freq-select">
+      <option value="3">3 days</option>
+      <option value="7" selected>1 week</option>
+      <option value="14">2 weeks</option>
+      <option value="30">1 month</option>
+    </select>
+    <div class="field-label">Last done</div>
+    <input class="sheet-input" type="date" id="chore-last-input"/>
+    <button class="sheet-cta" id="save-chore-btn">Add chore</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

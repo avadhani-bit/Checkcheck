@@ -1,0 +1,41 @@
+.card{
+background:var(--card);
+
+border:1px solid var(--border);
+
+border-radius:var(--radius);
+
+padding:24px;
+}
+
+.section-title{
+font-size:20px;
+margin-bottom:20px;
+}
+
+.task{
+display:flex;
+align-items:center;
+gap:14px;
+
+padding:14px 0;
+
+border-bottom:1px solid rgba(255,255,255,.05);
+}
+
+.check{
+width:22px;
+height:22px;
+
+border-radius:50%;
+
+border:2px solid var(--muted);
+}
+
+.task-name{
+flex:1;
+}
+
+.task.done{
+opacity:.4;
+}
