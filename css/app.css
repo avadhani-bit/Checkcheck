@@ -387,7 +387,6 @@ input, textarea, select { font-family: inherit; }
 }
 
 .task-row.done .task-name {
-  text-decoration: line-through;
   color: var(--text-3);
 }
 
@@ -502,7 +501,6 @@ input, textarea, select { font-family: inherit; }
 }
 
 .shopping-item.done .shopping-name {
-  text-decoration: line-through;
   color: var(--text-3);
 }
 
@@ -1683,7 +1681,27 @@ body.dark .task-tag.tag-recur {
 }
 .habit-streak-badge { color: var(--text-2); font-weight: 600; }
 .habit-no-streak { color: var(--text-3); }
+.habit-week-progress { color: var(--accent); font-weight: 600; font-size: .75rem; }
 .habit-rate { font-weight: 600; }
+
+/* Week circles for Nx/week habits */
+.habit-week-circle {
+  flex: 1;
+  min-width: 32px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all var(--transition);
+}
+.habit-week-circle.future { opacity: .35; }
+.habit-week-circle.today:not(.done) { border-width: 2px; }
+.habit-week-day-lbl { font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); line-height: 1; }
+.habit-week-circle.done .habit-week-day-lbl { color: rgba(255,255,255,.7); }
 .habit-rate.good { color: var(--green); }
 .habit-rate.mid  { color: var(--yellow, #F59E0B); }
 .habit-rate.low  { color: var(--red); }

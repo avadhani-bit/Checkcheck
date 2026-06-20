@@ -1153,13 +1153,24 @@ function renderChoreDetail() {
     }
   }
 
-  const intervalLabel = chore.intervalDays < 7
-    ? `${chore.intervalDays} days`
-    : chore.intervalDays === 7
-      ? 'weekly'
-      : chore.intervalDays === 14
-        ? 'every 2 weeks'
-        : `every ${chore.intervalDays} days`;
+  let intervalLabel;
+  if (chore.intervalDays < 7) {
+    intervalLabel = chore.intervalDays + ' days';
+  } else if (chore.intervalDays === 7) {
+    intervalLabel = 'weekly';
+  } else if (chore.intervalDays === 14) {
+    intervalLabel = 'every 2 weeks';
+  } else if (chore.intervalDays % 365 === 0) {
+    const yrs = chore.intervalDays / 365;
+    intervalLabel = yrs === 1 ? 'yearly' : 'every ' + yrs + ' years';
+  } else if (chore.intervalDays % 30 === 0) {
+    const mos = chore.intervalDays / 30;
+    intervalLabel = mos === 1 ? 'monthly' : 'every ' + mos + ' months';
+  } else if (chore.intervalDays % 7 === 0) {
+    intervalLabel = 'every ' + (chore.intervalDays / 7) + ' weeks';
+  } else {
+    intervalLabel = 'every ' + chore.intervalDays + ' days';
+  }
 
   const trendIcon  = { improving: '📈', declining: '📉', steady: '➡️' };
   const trendLabel = { improving: 'Improving', declining: 'Needs attention', steady: 'Steady' };
@@ -1354,6 +1365,31 @@ function renderChoreDetail() {
 const HABIT_EMOJIS = ['💪','🦷','📚','🏃','🧘','🥗','💧','😴','🎸','✍️','🧠','🌿','🐕','🚴','🏋️'];
 const HABIT_COLORS = ['#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#0EA5E9','#14B8A6','#F97316'];
 
+function habitTimesPerWeek(habit) {
+  if (typeof habit.targetDays === 'string' && /^\d+x$/.test(habit.targetDays)) {
+    return parseInt(habit.targetDays);
+  }
+  return null;
+}
+
+// Return Monday of the ISO week containing `date`
+function weekStart(date) {
+  const d = new Date(date); d.setHours(0,0,0,0);
+  const day = d.getDay(); // 0=Sun
+  const diff = (day === 0) ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function countDoneInWeek(doneSet, monDate) {
+  let count = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monDate); d.setDate(d.getDate() + i);
+    if (doneSet.has(d.toISOString().slice(0, 10))) count++;
+  }
+  return count;
+}
+
 function habitDoneDays(habit) {
   const done = new Set();
   (habit.history || []).forEach(ts => {
@@ -1372,11 +1408,30 @@ function isHabitTargetDay(habit, date) {
   if (!habit.targetDays || habit.targetDays === 'daily') return true;
   if (habit.targetDays === 'weekdays') return dow >= 1 && dow <= 5;
   if (habit.targetDays === 'weekends') return dow === 0 || dow === 6;
+  if (habitTimesPerWeek(habit)) return true; // Nx habits can be done any day
   if (Array.isArray(habit.targetDays)) return habit.targetDays.includes(dow);
   return true;
 }
 
 function habitStreak(habit) {
+  const nPerWeek = habitTimesPerWeek(habit);
+  if (nPerWeek) {
+    // Weekly streak: count consecutive weeks (ending this week) that met the target
+    const done = habitDoneDays(habit);
+    const today = new Date(); today.setHours(0,0,0,0);
+    let ws = weekStart(today);
+    let streak = 0;
+    for (let w = 0; w < 200; w++) {
+      const count = countDoneInWeek(done, ws);
+      // For the current week, only count if target met OR we're still in progress (give benefit)
+      // Actually: count only completed weeks unless current week already met target
+      if (w === 0 && count < nPerWeek) break; // current week not yet met
+      if (count >= nPerWeek) { streak++; }
+      else break;
+      ws = new Date(ws); ws.setDate(ws.getDate() - 7);
+    }
+    return streak;
+  }
   const done = habitDoneDays(habit);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().slice(0, 10);
@@ -1407,7 +1462,23 @@ function habitLongestStreak(habit) {
 
 function habitCompletionRate(habit, days) {
   const done = habitDoneDays(habit);
+  const nPerWeek = habitTimesPerWeek(habit);
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (nPerWeek) {
+    // Rate = weeks met / total weeks in period
+    const weeks = Math.max(1, Math.round(days / 7));
+    let ws = weekStart(today);
+    let met = 0, total = 0;
+    for (let w = 0; w < weeks; w++) {
+      // Skip completely future weeks
+      const sunDate = new Date(ws); sunDate.setDate(sunDate.getDate() + 6);
+      if (ws > today) { ws.setDate(ws.getDate() - 7); continue; }
+      total++;
+      if (countDoneInWeek(done, ws) >= nPerWeek) met++;
+      ws = new Date(ws); ws.setDate(ws.getDate() - 7);
+    }
+    return total === 0 ? 0 : Math.round((met / total) * 100);
+  }
   let target = 0, completed = 0;
   for (let i = 0; i < days; i++) {
     const d = new Date(today); d.setDate(d.getDate() - i);
@@ -1492,28 +1563,47 @@ function habitListRow(h) {
   const done  = h._doneToday;
   const streak = h._streak;
   const rate   = h._rate30;
+  const nPerWeek = habitTimesPerWeek(h);
+  let metaBadge, metaRight;
+  if (nPerWeek) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const ws = weekStart(today);
+    const doneSet = habitDoneDays(h);
+    const doneThisWeek = countDoneInWeek(doneSet, ws);
+    const pct = Math.min(100, Math.round((doneThisWeek / nPerWeek) * 100));
+    const weekMet = doneThisWeek >= nPerWeek;
+    metaBadge = weekMet
+      ? '<span class="habit-streak-badge">' + (streak >= 2 ? '🔥 ' + streak + 'wk streak' : '✓ Week done') + '</span>'
+      : '<span class="habit-week-progress">' + doneThisWeek + ' / ' + nPerWeek + ' this week</span>';
+    metaRight = '<span class="habit-rate ' + (pct >= 100 ? 'good' : pct >= 50 ? 'mid' : 'low') + '">' + pct + '%</span>';
+  } else {
+    metaBadge = streak > 0
+      ? '<span class="habit-streak-badge">' + (streak >= 7 ? '🔥' : '⚡') + ' ' + streak + 'd streak</span>'
+      : '<span class="habit-no-streak">Start your streak!</span>';
+    metaRight = '<span class="habit-rate ' + (rate >= 80 ? 'good' : rate >= 50 ? 'mid' : 'low') + '">' + rate + '%</span>';
+  }
   return `
-    <div class="habit-row ${done ? 'done' : ''}" data-habit-detail="${h.id}" style="cursor:pointer">
-      <button class="habit-check ${done ? 'checked' : ''}" data-habit-toggle="${h.id}"
-        style="${done ? 'background:' + color + ';border-color:' + color : 'border-color:' + color}" title="${done ? 'Undo' : 'Mark done for today'}">
-        ${done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+    <div class="habit-row \${done ? 'done' : ''}" data-habit-detail="\${h.id}" style="cursor:pointer">
+      <button class="habit-check \${done ? 'checked' : ''}" data-habit-toggle="\${h.id}"
+        style="\${done ? 'background:' + color + ';border-color:' + color : 'border-color:' + color}" title="\${done ? 'Undo' : 'Mark done for today'}">
+        \${done ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
       </button>
-      <div class="habit-emoji-badge" style="background:${color}22">${h.emoji || '⭐'}</div>
+      <div class="habit-emoji-badge" style="background:\${color}22">\${h.emoji || '⭐'}</div>
       <div class="habit-body">
-        <div class="habit-name">${escHtml(h.name)}</div>
+        <div class="habit-name">\${escHtml(h.name)}</div>
         <div class="habit-meta">
-          ${streak > 0 ? '<span class="habit-streak-badge">' + (streak >= 7 ? '🔥' : '⚡') + ' ' + streak + 'd streak</span>' : '<span class="habit-no-streak">Start your streak!</span>'}
-          <span class="habit-rate ${rate >= 80 ? 'good' : rate >= 50 ? 'mid' : 'low'}">${rate}%</span>
+          \${metaBadge}
+          \${metaRight}
         </div>
         <div class="habit-bar-track">
-          <div class="habit-bar-fill" style="width:${rate}%;background:${color}"></div>
+          <div class="habit-bar-fill" style="width:\${nPerWeek ? Math.min(100,Math.round((countDoneInWeek(habitDoneDays(h),weekStart(new Date()))/nPerWeek)*100)) : rate}%;background:\${color}"></div>
         </div>
       </div>
       <div class="task-actions">
-        <button class="task-action-btn" data-habit-edit="${h.id}" title="Edit">
+        <button class="task-action-btn" data-habit-edit="\${h.id}" title="Edit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="task-action-btn delete" data-habit-delete="${h.id}" title="Delete">
+        <button class="task-action-btn delete" data-habit-delete="\${h.id}" title="Delete">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
         </button>
       </div>
@@ -1532,8 +1622,10 @@ function renderHabitDetail() {
   const rateAll   = habitCompletionRate(habit, 365);
   const doneToday = isHabitDoneToday(habit);
   const total     = (habit.history || []).length;
-  const freqLabel = { daily: 'Every day', weekdays: 'Weekdays', weekends: 'Weekends' };
+  const freqLabel = { daily: 'Every day', weekdays: 'Weekdays', weekends: 'Weekends',
+    '2x': '2× per week', '3x': '3× per week', '4x': '4× per week', '5x': '5× per week', '6x': '6× per week' };
   const freq = freqLabel[habit.targetDays] || 'Every day';
+  const nPerWeek = habitTimesPerWeek(habit);
 
   main().innerHTML = `
     <button class="back-btn" id="btn-back-habit">
@@ -1562,11 +1654,37 @@ function renderHabitDetail() {
     </div>
 
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-value" style="color:${color}">${streak}</div><div class="stat-label">${streak >= 2 ? '🔥 ' : ''}Current streak</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:${color}">${streak}</div><div class="stat-label">${streak >= 2 ? '🔥 ' : ''}${nPerWeek ? 'Week streak' : 'Day streak'}</div></div>
       <div class="stat-card"><div class="stat-value">${longest}</div><div class="stat-label">Best streak</div></div>
-      <div class="stat-card"><div class="stat-value">${rate30}%</div><div class="stat-label">30-day rate</div></div>
+      <div class="stat-card"><div class="stat-value">${rate30}%</div><div class="stat-label">${nPerWeek ? '4-wk rate' : '30-day rate'}</div></div>
       <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total done</div></div>
     </div>
+    ${nPerWeek ? (() => {
+      const today2 = new Date(); today2.setHours(0,0,0,0);
+      const ws2 = weekStart(today2);
+      const doneSet2 = habitDoneDays(habit);
+      const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const circles = dayNames.map((dn, i) => {
+        const d = new Date(ws2); d.setDate(d.getDate() + i);
+        const isFuture = d > today2;
+        const isDone = !isFuture && doneSet2.has(d.toISOString().slice(0,10));
+        const isToday = d.toISOString().slice(0,10) === today2.toISOString().slice(0,10);
+        return `<div class="habit-week-circle \${isDone ? 'done' : isFuture ? 'future' : ''} \${isToday ? 'today' : ''}"
+          style="\${isDone ? 'background:' + color + ';border-color:' + color : isToday ? 'border-color:' + color + ';border-width:2px' : ''}">
+          <span class="habit-week-day-lbl">\${dn}</span>
+          \${isDone ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+        </div>`;
+      }).join('');
+      const doneThisWeek2 = countDoneInWeek(doneSet2, ws2);
+      return `<div class="card" style="padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">This week</span>
+          <span style="font-size:.85rem;font-weight:600;color:\${doneThisWeek2 >= nPerWeek ? color : 'var(--text-2)'}">\${doneThisWeek2} / \${nPerWeek} done</span>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:space-between">\${circles}</div>
+        \${doneThisWeek2 >= nPerWeek ? ('<div style="margin-top:12px;text-align:center;font-size:.82rem;font-weight:600;color:' + color + '">🎉 Week target met!</div>') : ''}
+      </div>`;
+    })() : ''}
 
     <div class="card" style="padding:18px 20px">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;text-align:center">
@@ -1690,6 +1808,12 @@ function openHabitModal(existing) {
     '<option value="daily"' + (curTarget === 'daily' ? ' selected' : '') + '>Every day</option>' +
     '<option value="weekdays"' + (curTarget === 'weekdays' ? ' selected' : '') + '>Weekdays (Mon–Fri)</option>' +
     '<option value="weekends"' + (curTarget === 'weekends' ? ' selected' : '') + '>Weekends only</option>' +
+    '<option disabled>──────────</option>' +
+    '<option value="2x"' + (curTarget === '2x' ? ' selected' : '') + '>2× per week</option>' +
+    '<option value="3x"' + (curTarget === '3x' ? ' selected' : '') + '>3× per week</option>' +
+    '<option value="4x"' + (curTarget === '4x' ? ' selected' : '') + '>4× per week</option>' +
+    '<option value="5x"' + (curTarget === '5x' ? ' selected' : '') + '>5× per week</option>' +
+    '<option value="6x"' + (curTarget === '6x' ? ' selected' : '') + '>6× per week</option>' +
     '</select></div>' +
     '<div class="form-group"><label class="form-label">Daily reminder <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>' +
     '<input class="form-input" id="habit-reminder" type="time" value="' + curReminder + '" /></div>' +
@@ -1811,6 +1935,11 @@ function renderReports() {
   const isNextDisabled = year === now.getFullYear() && month === now.getMonth();
 
   main().innerHTML = `
+    <div class="work-tabs">
+      <button class="work-tab" data-work-view="board">Board</button>
+      <button class="work-tab active" data-work-view="reports">Reports</button>
+    </div>
+
     <div class="page-header">
       <div class="page-header-left">
         <div class="page-title">Reports</div>
@@ -2041,9 +2170,12 @@ function openChoreModal(existing) {
   const isEdit = !!existing;
   let displayNum  = existing ? existing.intervalDays : 7;
   let displayUnit = 'days';
-  if (existing && existing.intervalDays % 7 === 0 && existing.intervalDays >= 7) {
-    displayNum  = existing.intervalDays / 7;
-    displayUnit = 'weeks';
+  if (existing) {
+    const d = existing.intervalDays;
+    if (d % 365 === 0 && d >= 365) { displayNum = d / 365; displayUnit = 'years'; }
+    else if (d % 30 === 0 && d >= 30) { displayNum = d / 30; displayUnit = 'months'; }
+    else if (d % 7 === 0 && d >= 7) { displayNum = d / 7; displayUnit = 'weeks'; }
+    else { displayNum = d; displayUnit = 'days'; }
   }
 
   const currentEmoji = existing?.emoji || '🧹';
@@ -2065,6 +2197,8 @@ function openChoreModal(existing) {
     '<select class="form-input" id="chore-unit">' +
     '<option value="days"' + (displayUnit === 'days' ? ' selected' : '') + '>days</option>' +
     '<option value="weeks"' + (displayUnit === 'weeks' ? ' selected' : '') + '>weeks</option>' +
+    '<option value="months"' + (displayUnit === 'months' ? ' selected' : '') + '>months</option>' +
+    '<option value="years"' + (displayUnit === 'years' ? ' selected' : '') + '>years</option>' +
     '</select></div></div>' +
     '<div class="form-group">' +
     '<label class="form-label">Timer <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional — e.g. 10 for 10-minute timer)</span></label>' +
@@ -2097,7 +2231,8 @@ function openChoreModal(existing) {
     const title        = document.getElementById('chore-name').value.trim();
     const rawNum       = parseInt(document.getElementById('chore-interval').value) || 7;
     const unit         = document.getElementById('chore-unit').value;
-    const intervalDays = unit === 'weeks' ? rawNum * 7 : rawNum;
+    const unitMult = unit === 'years' ? 365 : unit === 'months' ? 30 : unit === 'weeks' ? 7 : 1;
+    const intervalDays = rawNum * unitMult;
     const timerRaw     = parseInt(document.getElementById('chore-timer').value);
     const timerMinutes = timerRaw > 0 ? timerRaw : null;
     if (!title) { document.getElementById('chore-name').focus(); return; }
