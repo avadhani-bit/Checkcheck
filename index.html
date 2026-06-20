@@ -121,7 +121,10 @@
           </div>
           <div id="sub-shopping">
             <div class="sec-card">
-              <div class="sec-hd"><span class="sec-label">Shopping list</span></div>
+              <div class="sec-hd">
+                <span class="sec-label">Shopping list</span>
+                <button class="share-btn" id="share-shopping-btn">Share ↗</button>
+              </div>
               <div id="shopping-list-items"></div>
               <div id="shopping-empty" class="list-empty hidden">Nothing on the list yet.</div>
             </div>
@@ -312,11 +315,16 @@
   <div class="sheet">
     <div class="sheet-handle"></div>
     <h2 class="sheet-title">New to-do</h2>
-    <input class="sheet-input big" id="todo-name-input" placeholder="What do you need to do?" autocomplete="off"/>
-    <div class="field-label">Due date <span style="color:var(--t3);font-weight:400">(optional)</span></div>
-    <input class="sheet-input" type="date" id="todo-due-input"/>
-    <div class="field-label">Note <span style="color:var(--t3);font-weight:400">(optional)</span></div>
-    <textarea class="sheet-input" id="todo-note-input" rows="2" placeholder="Optional note…"></textarea>
+    <input class="sheet-input big" id="todo-name-input" placeholder="What do you need to do?" autocomplete="off" autofocus/>
+    <button class="sheet-expand-toggle" id="todo-expand-btn">
+      <span class="tog-arrow">›</span> Add due date or note
+    </button>
+    <div class="sheet-expandable" id="todo-extras">
+      <div class="field-label">Due date</div>
+      <input class="sheet-input" type="date" id="todo-due-input"/>
+      <div class="field-label">Note</div>
+      <textarea class="sheet-input" id="todo-note-input" rows="2" placeholder="Optional note…"></textarea>
+    </div>
     <button class="sheet-cta" id="save-todo-btn">Add to-do</button>
   </div>
 </div>

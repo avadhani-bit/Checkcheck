@@ -702,19 +702,27 @@ function renderChoreDetail(choreId) {
 
 function drawTrendChart(intervals, target) {
   const canvas = document.getElementById('trend-canvas');
-  const rect   = canvas.getBoundingClientRect();
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = rect.width  * dpr;
-  canvas.height = 100 * dpr;
+  if (!canvas) return;
+
+  // Size canvas to its container
+  const wrap = canvas.parentElement;
+  const W    = wrap.clientWidth  || 300;
+  const H    = 100;
+  const dpr  = window.devicePixelRatio || 1;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
 
-  const W = rect.width, H = 100;
   if (!intervals.length) {
-    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
     ctx.font = '12px Inter,sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Complete this chore a few times to see trends', W/2, H/2);
+    ctx.fillText('Mark this chore done a few times to see trends', W/2, H/2);
     return;
   }
 
@@ -723,16 +731,16 @@ function drawTrendChart(intervals, target) {
   const ch   = H - pad.t - pad.b;
   const max  = Math.max(...intervals, target) + 3;
   const n    = intervals.length;
-  const xStep = n > 1 ? cw / (n-1) : cw;
+  const xStep = n > 1 ? cw / (n - 1) : cw;
   const fy   = v => pad.t + ch - (v / max) * ch;
 
-  // Target line
+  // Target dashed line
   const ty = fy(target);
-  ctx.strokeStyle = 'rgba(255,255,255,.12)';
-  ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,.15)';
+  ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pad.l, ty); ctx.lineTo(W - pad.r, ty); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(255,255,255,.28)';
+  ctx.fillStyle = 'rgba(255,255,255,.3)';
   ctx.font = '9px Inter,sans-serif'; ctx.textAlign = 'left';
   ctx.fillText(target + 'd', 2, ty + 3);
 
@@ -741,7 +749,7 @@ function drawTrendChart(intervals, target) {
     y: fy(v)
   }));
 
-  // Area fill
+  // Area
   ctx.beginPath();
   ctx.moveTo(pts[0].x, H - pad.b);
   pts.forEach(p => ctx.lineTo(p.x, p.y));
@@ -765,12 +773,12 @@ function drawTrendChart(intervals, target) {
   pts.forEach((p, i) => {
     const v = intervals[i];
     const c = v > target ? '#FF7070' : v > target * .75 ? '#FFAD3A' : '#2EE89A';
-    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
     ctx.fillStyle = c; ctx.fill();
     ctx.strokeStyle = '#1E1E24'; ctx.lineWidth = 1.5; ctx.stroke();
   });
 
-  // X labels
+  // X axis labels
   ctx.fillStyle = 'rgba(255,255,255,.25)';
   ctx.font = '8px Inter,sans-serif'; ctx.textAlign = 'center';
   pts.forEach((p, i) => ctx.fillText(i + 1, p.x, H - 3));
@@ -808,9 +816,18 @@ document.getElementById('work-fab').addEventListener('click', () => {
 
 // Personal FAB
 document.getElementById('personal-fab').addEventListener('click', () => {
-  if (currentSub === 'shopping') openSheet('sheet-item');
-  else if (currentSub === 'todo') openSheet('sheet-todo');
-  else openSheet('sheet-chore');
+  if (currentSub === 'shopping') {
+    openSheet('sheet-item');
+    setTimeout(() => document.getElementById('item-name-input')?.focus(), 350);
+  } else if (currentSub === 'todo') {
+    openSheet('sheet-todo');
+    setTimeout(() => document.getElementById('todo-name-input')?.focus(), 350);
+  } else {
+    // chores
+    document.getElementById('chore-last-input').value = getToday();
+    openSheet('sheet-chore');
+    setTimeout(() => document.getElementById('chore-name-input')?.focus(), 350);
+  }
 });
 
 // Project FAB
@@ -864,7 +881,23 @@ document.getElementById('save-task-btn').addEventListener('click', async () => {
   showToast(`Task added`);
 });
 
-// Shopping item — no qty, added to TOP using negative sort key
+// Shopping share
+document.getElementById('share-shopping-btn')?.addEventListener('click', () => {
+  const unchecked = shopping.filter(i => !i.checked).map(i => `• ${i.name}`).join('\n');
+  const checked   = shopping.filter(i =>  i.checked).map(i => `✓ ${i.name}`).join('\n');
+  let text = 'Shopping list\n\n';
+  if (unchecked) text += unchecked;
+  if (checked)   text += '\n\nAlready got:\n' + checked;
+
+  // Try native share first (mobile), fall back to mailto
+  if (navigator.share) {
+    navigator.share({ title: 'Shopping list', text }).catch(() => {});
+  } else {
+    const subject = encodeURIComponent('Shopping list');
+    const body    = encodeURIComponent(text);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  }
+});
 document.getElementById('save-item-btn').addEventListener('click', async () => {
   const name = document.getElementById('item-name-input').value.trim();
   if (!name) return;
@@ -877,6 +910,14 @@ document.getElementById('save-item-btn').addEventListener('click', async () => {
   });
   document.getElementById('item-name-input').value = '';
   showToast('Item added');
+});
+
+// Todo expand toggle
+document.getElementById('todo-expand-btn')?.addEventListener('click', () => {
+  const btn     = document.getElementById('todo-expand-btn');
+  const extras  = document.getElementById('todo-extras');
+  btn.classList.toggle('open');
+  extras.classList.toggle('open');
 });
 
 // Personal todo
@@ -894,6 +935,9 @@ document.getElementById('save-todo-btn').addEventListener('click', async () => {
   document.getElementById('todo-name-input').value  = '';
   document.getElementById('todo-due-input').value   = '';
   document.getElementById('todo-note-input').value  = '';
+  // reset expand
+  document.getElementById('todo-expand-btn')?.classList.remove('open');
+  document.getElementById('todo-extras')?.classList.remove('open');
   showToast('To-do added');
 });
 
@@ -1132,30 +1176,20 @@ function updateSidebarUser(user) {
 }
 
 // ── DESKTOP DETECTION ─────────────────────────────────────
-// Only show sidebar when there's a real pointer device (mouse) AND wide screen
-// This prevents tablets/phones from showing the sidebar even at wide widths
 function checkDesktop() {
-  const isWide    = window.innerWidth >= 768;
-  const hasMouse  = window.matchMedia('(pointer: fine)').matches;
-  const isDesktop = isWide && hasMouse;
-  const sidebar   = document.getElementById('sidebar');
-  const topbar    = document.querySelector('.topbar');
-  const subtabs   = document.querySelector('.subtabs');
-  const app       = document.getElementById('app');
-
-  if (isDesktop) {
-    sidebar?.classList.add('desktop-visible');
-    if (topbar)  topbar.style.display  = 'none';
-    if (subtabs) subtabs.style.display = 'none';
-    if (app) { app.style.flexDirection = 'row'; app.style.maxWidth = 'none'; }
+  const isWide   = window.innerWidth >= 768;
+  const hasMouse = window.matchMedia('(pointer: fine)').matches;
+  const app      = document.getElementById('app');
+  if (isWide && hasMouse) {
+    app.classList.add('is-desktop');
   } else {
-    sidebar?.classList.remove('desktop-visible');
+    app.classList.remove('is-desktop');
+    // restore mobile topbar/subtabs
+    const topbar  = document.querySelector('.topbar');
+    const subtabs = document.querySelector('.subtabs');
     if (topbar)  topbar.style.display  = '';
     if (subtabs) subtabs.style.display = '';
-    if (app) { app.style.flexDirection = ''; app.style.maxWidth = ''; }
   }
 }
-
-// Run on load and on resize
 checkDesktop();
 window.addEventListener('resize', checkDesktop);
