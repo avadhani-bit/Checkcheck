@@ -85,3 +85,8 @@ cursor:pointer;
 display:grid;
 gap:20px;
 }
+.topbar{
+margin-bottom:40px;
+padding-bottom:20px;
+border-bottom:1px solid rgba(255,255,255,.05);
+}

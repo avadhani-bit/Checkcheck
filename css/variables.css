@@ -1,21 +1,26 @@
-:root{
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
---bg:#111827;
+:root {
 
---sidebar:#0F172A;
+  /* Colors */
+  --bg:        #111827;
+  --sidebar:   #0F172A;
+  --card:      #1F2937;
+  --card-hover:#253347;
+  --border:    #374151;
+  --text:      #F9FAFB;
+  --muted:     #9CA3AF;
+  --accent:    #8B5CF6;
+  --accent-dim:#4C1D95;
+  --green:     #10B981;
+  --red:       #EF4444;
+  --yellow:    #F59E0B;
 
---card:#1F2937;
+  /* Shape */
+  --radius:    22px;
+  --radius-sm: 12px;
 
---border:#374151;
-
---text:#F9FAFB;
-
---muted:#9CA3AF;
-
---accent:#8B5CF6;
-
---green:#10B981;
-
---radius:22px;
+  /* Spacing */
+  --gap:       20px;
 
 }
