@@ -1007,6 +1007,223 @@ input, textarea, select { font-family: inherit; }
 
 .inline-add-btn:hover { background: var(--accent-hover); }
 
+/* ─── DARK MODE ─── */
+body.dark {
+  --bg:            #0F172A;
+  --surface:       #1E293B;
+  --surface-2:     #334155;
+  --border:        #475569;
+  --border-light:  #334155;
+  --text-1:        #F1F5F9;
+  --text-2:        #94A3B8;
+  --text-3:        #64748B;
+  --accent-light:  #1E1B4B;
+  --green-light:   #064E3B;
+  --red-light:     #450A0A;
+  --amber-light:   #451A03;
+}
+
+body.dark .header {
+  background: rgba(15,23,42,0.92);
+  border-bottom-color: #334155;
+}
+
+body.dark .modal {
+  background: #1E293B;
+}
+
+body.dark .form-input {
+  background: #334155;
+  border-color: #475569;
+  color: var(--text-1);
+}
+
+body.dark .form-input::placeholder { color: var(--text-3); }
+
+body.dark .inline-add-input {
+  background: #334155;
+  border-color: #475569;
+  color: var(--text-1);
+}
+
+body.dark .cal-day[data-count="0"] { background: #1E293B; }
+
+/* ─── EXPANDED PROJECT CARDS (Work view) ─── */
+.project-expanded-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.project-expanded-card::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: var(--project-color, var(--accent));
+}
+
+.project-expanded-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  gap: 12px;
+}
+
+.project-expanded-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.project-expanded-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-1);
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition);
+}
+
+.project-expanded-name:hover { color: var(--accent); }
+
+.project-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.add-task-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: 6px;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.add-task-btn:hover { background: var(--accent); color: white; }
+
+.project-expanded-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.project-expanded-footer .inline-add { flex: 1; padding: 0; border: none; }
+
+.completed-link {
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: all var(--transition);
+}
+
+.completed-link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* ─── COMPLETED TASK ROW ─── */
+.completed-task-date {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ─── CHORE DETAIL / HISTORY ─── */
+.chore-history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.chore-history-row:last-child { border-bottom: none; }
+
+.chore-history-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.chore-history-body { flex: 1; }
+
+.chore-history-date {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.chore-history-interval {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.chore-history-interval.good  { color: var(--green); }
+.chore-history-interval.late  { color: var(--red); }
+
+.trend-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.trend-bar-label {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.trend-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.trend-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
 /* ─── MOBILE ─── */
 @media (max-width: 600px) {
   .header-inner { padding: 0 16px; gap: 10px; }
