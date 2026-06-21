@@ -1843,12 +1843,13 @@ function renderHabitDetail() {
       const circles = dayNames.map((dn, i) => {
         const d = new Date(ws2); d.setDate(d.getDate() + i);
         const isFuture = d > today2;
-        const ds = d.toISOString().slice(0,10);
+        const ds = ldStr(d);
         const isDone = !isFuture && doneSet2.has(ds);
-        const isToday = ds === today2.toISOString().slice(0,10);
+        const isToday = ds === ldStr(today2);
         const cls = 'habit-week-circle' + (isDone ? ' done' : isFuture ? ' future' : '') + (isToday ? ' today' : '');
         const sty = isDone ? 'background:' + color + ';border-color:' + color : isToday ? 'border-color:' + color + ';border-width:2px' : '';
-        return '<div class="' + cls + '" style="' + sty + '">' +
+        const dateAttr = isFuture ? '' : ' data-date="' + ds + '"';
+        return '<div class="' + cls + '"' + dateAttr + ' style="' + sty + (isFuture ? '' : ';cursor:pointer') + '">' +
           '<span class="habit-week-day-lbl">' + dn + '</span>' +
           (isDone ? checkSvg : '') +
         '</div>';
@@ -1991,6 +1992,20 @@ function renderHabitDetail() {
     cell.onclick = () => { toggleHabitDate(state.activeHabit, cell.dataset.date); renderHabitDetail(); };
   });
 
+  // Scroll year graph so today is centred in the viewport
+  if (state.habitGraphView === 'year') {
+    const todayCell = document.getElementById('year-today-cell');
+    if (todayCell) {
+      const wrap = todayCell.closest('.year-graph-wrap');
+      if (wrap) wrap.scrollLeft = todayCell.offsetLeft - wrap.clientWidth / 2;
+    }
+  }
+
+  // Clickable week-day circles (This Week card)
+  document.querySelectorAll('.habit-week-circle[data-date]').forEach(cell => {
+    cell.onclick = () => { toggleHabitDate(state.activeHabit, cell.dataset.date); renderHabitDetail(); };
+  });
+
   // Clickable month-calendar cells
   document.querySelectorAll('.month-cal-cell[data-date]').forEach(cell => {
     cell.onclick = () => { toggleHabitDate(state.activeHabit, cell.dataset.date); renderHabitDetail(); };
@@ -2044,8 +2059,9 @@ function yearlyGraph(habit, color, year) {
           if (c.outOfYear) return '<div class="year-cell" style="background:transparent"></div>';
           const bg   = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
           const ring = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
+          const todayId = c.isToday ? ' id="year-today-cell"' : '';
           if (c.isFuture) return '<div class="year-cell" style="background:' + bg + '"></div>';
-          return '<div class="year-cell" data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer" title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
+          return '<div class="year-cell"' + todayId + ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer" title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
         }).join('') + '</div>').join('') +
       '</div>' +
     '</div>' +

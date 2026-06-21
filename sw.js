@@ -1,7 +1,6 @@
-/* CheckCheck — Service Worker */
-const CACHE = 'checkcheck-v2';
+/* CheckCheck — Service Worker v3 */
+const CACHE = 'checkcheck-v3';
 const PRECACHE = [
-  './',
   './index.html',
   './css/app.css',
   './js/app.js',
@@ -12,7 +11,9 @@ const PRECACHE = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => c.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -26,18 +27,37 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // Let Firebase, Google Fonts, and googleapis handle themselves
-  if (url.includes('firebase') || url.includes('googleapis') || url.includes('gstatic')) return;
 
+  // Never intercept Firebase, Google auth, or third-party requests
+  if (
+    url.includes('firebaseapp.com') ||
+    url.includes('googleapis.com') ||
+    url.includes('gstatic.com') ||
+    url.includes('accounts.google.com') ||
+    url.includes('firestore.googleapis.com') ||
+    e.request.method !== 'GET'
+  ) return;
+
+  // For page navigations (including auth redirects back to the app),
+  // always serve the cached index.html so the SPA can boot
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      caches.match('./index.html').then(cached => {
+        return cached || fetch('./index.html');
+      })
+    );
+    return;
+  }
+
+  // For static assets: cache-first, update in background
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request).then(res => {
-        if (res.ok && e.request.method === 'GET') {
+        if (res.ok) {
           caches.open(CACHE).then(c => c.put(e.request, res.clone()));
         }
         return res;
       }).catch(() => cached);
-      // Cache-first for app shell, network-first for everything else
       return cached || network;
     })
   );

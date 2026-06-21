@@ -2001,9 +2001,14 @@ body.dark .task-tag.tag-recur {
   /* Chore/habit list rows: bigger touch area */
   .chore-row, .habit-row { min-height: 52px; }
 
-  /* Header: hide logo text so avatar always fits */
+  /* Header: hide logo text, tighten spacing so avatar always fits */
   .logo span { display: none; }
-  .header-inner { gap: 10px; }
+  .header-inner { gap: 8px; padding: 0 12px; }
+  /* Shrink toggle buttons so they don't crowd the avatar */
+  .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
+  .mode-toggle-pill .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
+  /* Never let the avatar be pushed off screen */
+  #user-btn { flex-shrink: 0; }
 }
 
 /* ─── 3-up month view ─── */
