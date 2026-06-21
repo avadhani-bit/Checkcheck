@@ -1917,6 +1917,15 @@ body.dark .task-tag.tag-recur {
   transition: opacity .15s;
 }
 .month-cal-cell:hover { opacity: .75; }
+.month-cal-hdr {
+  font-size: .62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3);
+  text-align: center;
+  padding: 4px 0 6px;
+}
 
 /* ─── DUE THIS WEEK redesign ─── */
 .summary-due-row {
