@@ -1571,6 +1571,31 @@ function habitCompletionRate(habit, days) {
   return target === 0 ? 0 : Math.round((completed / target) * 100);
 }
 
+
+function habitDoneThisMonth(habit) {
+  const done  = habitDoneDays(habit);
+  const now   = new Date();
+  const y     = now.getFullYear();
+  const m     = now.getMonth();
+  const days  = new Date(y, m + 1, 0).getDate();
+  let count = 0;
+  for (let d = 1; d <= days; d++) {
+    const s = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    if (done.has(s)) count++;
+  }
+  return count;
+}
+
+function habitMonthlyAvg(habit) {
+  const history = habit.history || [];
+  if (!history.length) return 0;
+  const first   = new Date(Math.min(...history));
+  const now     = new Date();
+  // Count distinct months from first entry to now
+  const months  = (now.getFullYear() - first.getFullYear()) * 12 + (now.getMonth() - first.getMonth()) + 1;
+  return Math.round((history.length / Math.max(1, months)) * 10) / 10;
+}
+
 function markHabitDone(id) {
   toggleHabitDate(id, new Date().toISOString().slice(0, 10));
 }
@@ -1766,7 +1791,9 @@ function renderHabitDetail() {
   const rate30    = habitCompletionRate(habit, 30);
   const rateAll   = habitCompletionRate(habit, 365);
   const doneToday = isHabitDoneToday(habit);
-  const total     = (habit.history || []).length;
+  const total      = (habit.history || []).length;
+  const thisMonth  = habitDoneThisMonth(habit);
+  const monthlyAvg = habitMonthlyAvg(habit);
   const freqLabel = { daily: 'Every day', weekdays: 'Weekdays', weekends: 'Weekends',
     '2x': '2× per week', '3x': '3× per week', '4x': '4× per week', '5x': '5× per week', '6x': '6× per week' };
   const freq = freqLabel[habit.targetDays] || 'Every day';
@@ -1802,8 +1829,10 @@ function renderHabitDetail() {
     <div class="stats-row">
       <div class="stat-card"><div class="stat-value" style="color:${color}">${streak}</div><div class="stat-label">${streak >= 2 ? '🔥 ' : ''}${nPerWeek ? 'Week streak' : 'Day streak'}</div></div>
       <div class="stat-card"><div class="stat-value">${longest}</div><div class="stat-label">Best streak</div></div>
+      <div class="stat-card"><div class="stat-value">${thisMonth}</div><div class="stat-label">This month</div></div>
+      <div class="stat-card"><div class="stat-value">${monthlyAvg}</div><div class="stat-label">Monthly avg</div></div>
       <div class="stat-card"><div class="stat-value">${rate30}%</div><div class="stat-label">${nPerWeek ? '4-wk rate' : '30-day rate'}</div></div>
-      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total done</div></div>
+      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">All time</div></div>
     </div>
     ${nPerWeek ? (() => {
       const today2 = new Date(); today2.setHours(0,0,0,0);

@@ -59,6 +59,7 @@ input, textarea, select { font-family: inherit; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-light);
+  padding-top: env(safe-area-inset-top);
 }
 
 .header-inner {
@@ -172,7 +173,7 @@ input, textarea, select { font-family: inherit; }
 .main {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 28px 20px 80px;
+  padding: 28px 20px calc(80px + env(safe-area-inset-bottom));
 }
 
 /* ─── PAGE HEADER ─── */
@@ -1975,3 +1976,28 @@ body.dark .task-tag.tag-recur {
 .summary-due-date.soon   { color: #F59E0B; }
 .summary-due-date.overdue { color: var(--red); }
 .summary-due-list { display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 768px) {
+  .main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+
+  /* Larger tap targets on checkboxes and action buttons */
+  [data-check-id],
+  .swc-check,
+  .task-action-btn,
+  .header-icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Habit mark-done button more tappable */
+  .habit-mark-btn { padding: 10px 20px; font-size: .9rem; }
+
+  /* Stats: 2-up on narrow phones */
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+
+  /* Don't shrink page title too much */
+  .page-title { font-size: 1.15rem; }
+
+  /* Chore/habit list rows: bigger touch area */
+  .chore-row, .habit-row { min-height: 52px; }
+}
