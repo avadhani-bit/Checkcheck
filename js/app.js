@@ -6,6 +6,50 @@
 
 'use strict';
 
+// ─── FIREBASE SYNC ──────────────────────────────────────
+const _FB_CONFIG = {
+  apiKey:            'AIzaSyBpUUVpBIsuKAx1Tw-cnN4ItXho7IqbMMQ',
+  authDomain:        'checkcheck-3d35f.firebaseapp.com',
+  projectId:         'checkcheck-3d35f',
+  storageBucket:     'checkcheck-3d35f.firebasestorage.app',
+  messagingSenderId: '744363444071',
+  appId:             '1:744363444071:web:5e72bf03a2771ae83c91c2',
+};
+firebase.initializeApp(_FB_CONFIG);
+const _fbAuth  = firebase.auth();
+const _fbStore = firebase.firestore();
+let   _fbUser  = null;
+const SYNC_KEYS = ['projects','tasks','chores','todos','shopping','habits'];
+
+function fsPush(k, data) {
+  if (!_fbUser) return;
+  _fbStore.collection('users').doc(_fbUser.uid).collection('data').doc(k)
+    .set({ items: data, updatedAt: Date.now() })
+    .catch(function(e) { console.warn('Firestore write failed:', k, e); });
+}
+
+async function fsPull() {
+  if (!_fbUser) return;
+  var fsHasData = false;
+  for (const _k of SYNC_KEYS) {
+    try {
+      const snap = await _fbStore.collection('users').doc(_fbUser.uid).collection('data').doc(_k).get();
+      if (snap.exists && Array.isArray(snap.data().items) && snap.data().items.length > 0) {
+        localStorage.setItem('cc_' + _k, JSON.stringify(snap.data().items));
+        fsHasData = true;
+      }
+    } catch(e) { console.warn('Firestore pull failed:', _k, e); }
+  }
+  // If Firestore was empty but localStorage has data, push it up (first-time migration)
+  if (!fsHasData) {
+    for (const _k2 of SYNC_KEYS) {
+      const local = JSON.parse(localStorage.getItem('cc_' + _k2) || '[]');
+      if (local.length > 0) fsPush(_k2, local);
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────
+
 // ─── UTILITIES ───────────────────────────────────────────────────
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -57,7 +101,7 @@ const DB = {
     try { return JSON.parse(localStorage.getItem(DB._key(k)) || '[]'); }
     catch { return []; }
   },
-  set: (k, data) => localStorage.setItem(DB._key(k), JSON.stringify(data)),
+  set: (k, data) => { localStorage.setItem(DB._key(k), JSON.stringify(data)); fsPush(k, data); },
   add:    (k, item)      => { const d = DB.get(k); d.push(item); DB.set(k, d); },
   update: (k, id, patch) => { DB.set(k, DB.get(k).map(i => i.id === id ? { ...i, ...patch } : i)); },
   remove: (k, id)        => DB.set(k, DB.get(k).filter(i => i.id !== id)),
@@ -2413,7 +2457,9 @@ function openDataModal() {
 
 // ---- BOOTSTRAP ----
 
-function init() {
+let _appInitDone = false;
+
+function _appInit() {
   seedIfEmpty();
   applyTimeBasedTheme();
   setInterval(applyTimeBasedTheme, 60000);
@@ -2435,7 +2481,6 @@ function init() {
     };
   });
 
-  // Data backup button
   document.getElementById('data-btn').onclick = openDataModal;
 
   document.getElementById('modal-backdrop').addEventListener('click', e => {
@@ -2450,9 +2495,10 @@ function init() {
   // Resume any active timer that survived page reload
   if (getActiveTimer()) startGlobalTimerTick();
 
-  // When page becomes visible again (unlock / tab switch), recheck timer
+  // When page becomes visible again (unlock / tab switch): sync + recheck timer
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
+      if (_fbUser) fsPull().then(() => render());
       const t = getActiveTimer();
       if (t) {
         if (Date.now() - t.startedAt >= t.durationMs) ringGlobalTimer(t.choreId);
@@ -2462,6 +2508,51 @@ function init() {
   });
 
   render();
+}
+
+function init() {
+  // Show auth gate while we wait for Firebase
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+
+  // Google sign-in button
+  document.getElementById('google-signin-btn').onclick = () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    _fbAuth.signInWithPopup(provider).catch(e => console.error('Sign-in failed:', e));
+  };
+
+  // User button → sign out
+  document.getElementById('user-btn').onclick = () => {
+    if (confirm('Sign out of CheckCheck?')) {
+      _fbAuth.signOut().then(() => window.location.reload());
+    }
+  };
+
+  _fbAuth.onAuthStateChanged(async user => {
+    _fbUser = user;
+    if (!user) {
+      document.getElementById('auth-gate').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      return;
+    }
+    // Signed in — show app, update avatar
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    const avatar  = document.getElementById('user-avatar');
+    const userBtn = document.getElementById('user-btn');
+    if (avatar)  avatar.textContent = (user.email || 'U')[0].toUpperCase();
+    if (userBtn) userBtn.style.display = '';
+
+    // Pull latest data from Firestore before rendering
+    await fsPull();
+
+    if (!_appInitDone) {
+      _appInitDone = true;
+      _appInit();
+    } else {
+      render();
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

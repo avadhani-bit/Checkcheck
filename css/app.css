@@ -1882,6 +1882,42 @@ body.dark .task-tag.tag-recur {
 }
 .year-legend .year-cell { flex-shrink: 0; }
 
+
+/* ─── Habit graph tabs + month calendar ─── */
+.habit-graph-tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.habit-graph-tab.active {
+  background: var(--surface);
+  color: var(--text-1);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+.month-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.month-cal-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .78rem;
+  font-weight: 500;
+  transition: opacity .15s;
+}
+.month-cal-cell:hover { opacity: .75; }
+
 /* ─── DUE THIS WEEK redesign ─── */
 .summary-due-row {
   display: flex;
