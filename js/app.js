@@ -1827,7 +1827,7 @@ function renderHabitDetail() {
     </div>
 
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-value" style="color:${color}">${streak}</div><div class="stat-label">${streak >= 2 ? '🔥 ' : ''}${nPerWeek ? 'Week streak' : 'Day streak'}</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:${color}">${streak}</div><div class="stat-label">${streak >= 1 ? '🔥 ' : ''}${nPerWeek ? 'Week streak' : 'Day streak'}</div></div>
       <div class="stat-card"><div class="stat-value">${longest}</div><div class="stat-label">Best streak</div></div>
       <div class="stat-card"><div class="stat-value">${thisMonth}</div><div class="stat-label">This month</div></div>
       <div class="stat-card"><div class="stat-value">${monthlyAvg}</div><div class="stat-label">Monthly avg</div></div>
@@ -1839,26 +1839,32 @@ function renderHabitDetail() {
       const ws2 = weekStart(today2);
       const doneSet2 = habitDoneDays(habit);
       const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
       const circles = dayNames.map((dn, i) => {
         const d = new Date(ws2); d.setDate(d.getDate() + i);
         const isFuture = d > today2;
-        const isDone = !isFuture && doneSet2.has(d.toISOString().slice(0,10));
-        const isToday = d.toISOString().slice(0,10) === today2.toISOString().slice(0,10);
-        return `<div class="habit-week-circle \${isDone ? 'done' : isFuture ? 'future' : ''} \${isToday ? 'today' : ''}"
-          style="\${isDone ? 'background:' + color + ';border-color:' + color : isToday ? 'border-color:' + color + ';border-width:2px' : ''}">
-          <span class="habit-week-day-lbl">\${dn}</span>
-          \${isDone ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-        </div>`;
+        const ds = d.toISOString().slice(0,10);
+        const isDone = !isFuture && doneSet2.has(ds);
+        const isToday = ds === today2.toISOString().slice(0,10);
+        const cls = 'habit-week-circle' + (isDone ? ' done' : isFuture ? ' future' : '') + (isToday ? ' today' : '');
+        const sty = isDone ? 'background:' + color + ';border-color:' + color : isToday ? 'border-color:' + color + ';border-width:2px' : '';
+        return '<div class="' + cls + '" style="' + sty + '">' +
+          '<span class="habit-week-day-lbl">' + dn + '</span>' +
+          (isDone ? checkSvg : '') +
+        '</div>';
       }).join('');
       const doneThisWeek2 = countDoneInWeek(doneSet2, ws2);
-      return `<div class="card" style="padding:18px 20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">This week</span>
-          <span style="font-size:.85rem;font-weight:600;color:\${doneThisWeek2 >= nPerWeek ? color : 'var(--text-2)'}">\${doneThisWeek2} / \${nPerWeek} done</span>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:space-between">\${circles}</div>
-        \${doneThisWeek2 >= nPerWeek ? ('<div style="margin-top:12px;text-align:center;font-size:.82rem;font-weight:600;color:' + color + '">🎉 Week target met!</div>') : ''}
-      </div>`;
+      const metBanner = doneThisWeek2 >= nPerWeek
+        ? '<div style="margin-top:12px;text-align:center;font-size:.82rem;font-weight:600;color:' + color + '">🎉 Week target met!</div>'
+        : '';
+      return '<div class="card" style="padding:18px 20px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+          '<span style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3)">This week</span>' +
+          '<span style="font-size:.85rem;font-weight:600;color:' + (doneThisWeek2 >= nPerWeek ? color : 'var(--text-2)') + '">' + doneThisWeek2 + ' / ' + nPerWeek + ' done</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;justify-content:space-between">' + circles + '</div>' +
+        metBanner +
+      '</div>';
     })() : ''}
 
     <div class="card" style="padding:18px 20px">
@@ -1887,9 +1893,30 @@ function renderHabitDetail() {
       var label = _view === 'year'
         ? String(_yr)
         : new Date(_yr, _mo).toLocaleDateString('en-US', {month:'long', year:'numeric'});
-      var graph = _view === 'year'
-        ? yearlyGraph(habit, color, _yr)
-        : monthGraph(habit, color, _yr, _mo);
+      var graph;
+      if (_view === 'year') {
+        graph = yearlyGraph(habit, color, _yr);
+      } else {
+        var prevMo = _mo === 0 ? 11 : _mo - 1;
+        var prevYr = _mo === 0 ? _yr - 1 : _yr;
+        var nextMo = _mo === 11 ? 0 : _mo + 1;
+        var nextYr = _mo === 11 ? _yr + 1 : _yr;
+        var fmtMo = function(y, m) { return new Date(y, m).toLocaleDateString('en-US', {month:'short', year:'numeric'}); };
+        graph = '<div class="month-3up">' +
+          '<div class="month-3up-col month-3up-side">' +
+            '<div class="month-3up-label">' + fmtMo(prevYr, prevMo) + '</div>' +
+            monthGraph(habit, color, prevYr, prevMo) +
+          '</div>' +
+          '<div class="month-3up-col">' +
+            '<div class="month-3up-label month-3up-label-active">' + fmtMo(_yr, _mo) + '</div>' +
+            monthGraph(habit, color, _yr, _mo) +
+          '</div>' +
+          '<div class="month-3up-col month-3up-side">' +
+            '<div class="month-3up-label">' + fmtMo(nextYr, nextMo) + '</div>' +
+            monthGraph(habit, color, nextYr, nextMo) +
+          '</div>' +
+        '</div>';
+      }
       var todayBtn = isCurrent ? '' :
         '<button id="hg-today" style="font-size:.72rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">Today</button>';
       return '<div class="card" style="padding:18px 20px;overflow-x:auto">' +
@@ -2649,17 +2676,47 @@ function init() {
   document.getElementById('auth-gate').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
 
-  // Google sign-in button
+  // Handle redirect result first (mobile redirect flow)
+  _fbAuth.getRedirectResult().catch(e => console.warn('Redirect result error:', e));
+
+  // Google sign-in button — use redirect (works on iOS Safari + Android)
   document.getElementById('google-signin-btn').onclick = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    _fbAuth.signInWithPopup(provider).catch(e => console.error('Sign-in failed:', e));
+    _fbAuth.signInWithRedirect(provider);
   };
 
-  // User button → sign out
-  document.getElementById('user-btn').onclick = () => {
-    if (confirm('Sign out of CheckCheck?')) {
+  // User button → account dropdown
+  document.getElementById('user-btn').onclick = (e) => {
+    e.stopPropagation();
+    const existing = document.getElementById('account-dropdown');
+    if (existing) { existing.remove(); return; }
+    const u = _fbAuth.currentUser;
+    const photoHTML = u && u.photoURL
+      ? '<img src="' + u.photoURL + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" referrerpolicy="no-referrer">'
+      : '<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0">' + ((u && u.email || 'U')[0].toUpperCase()) + '</div>';
+    const dropdown = document.createElement('div');
+    dropdown.id = 'account-dropdown';
+    dropdown.style.cssText = 'position:fixed;top:68px;right:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:500;min-width:220px;max-width:280px';
+    dropdown.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-light)">' +
+        photoHTML +
+        '<div style="min-width:0">' +
+          '<div style="font-weight:600;font-size:.9rem;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(u && u.displayName || 'User') + '</div>' +
+          '<div style="font-size:.75rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(u && u.email || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
+    document.body.appendChild(dropdown);
+    document.getElementById('signout-btn').onclick = () => {
       _fbAuth.signOut().then(() => window.location.reload());
-    }
+    };
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', function closeDD() {
+        dropdown.remove();
+        document.removeEventListener('click', closeDD);
+      });
+    }, 0);
   };
 
   _fbAuth.onAuthStateChanged(async user => {
@@ -2674,7 +2731,13 @@ function init() {
     document.getElementById('app').style.display = '';
     const avatar  = document.getElementById('user-avatar');
     const userBtn = document.getElementById('user-btn');
-    if (avatar)  avatar.textContent = (user.email || 'U')[0].toUpperCase();
+    if (avatar) {
+      if (user.photoURL) {
+        avatar.innerHTML = '<img src="' + user.photoURL + '" style="width:26px;height:26px;border-radius:50%;object-fit:cover;display:block" referrerpolicy="no-referrer">';
+      } else {
+        avatar.textContent = (user.email || 'U')[0].toUpperCase();
+      }
+    }
     if (userBtn) userBtn.style.display = '';
 
     // Pull latest data from Firestore before rendering

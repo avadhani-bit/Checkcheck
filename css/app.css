@@ -1909,11 +1909,11 @@ body.dark .task-tag.tag-recur {
 }
 .month-cal-cell {
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: .78rem;
+  font-size: .72rem;
   font-weight: 500;
   transition: opacity .15s;
 }
@@ -2000,4 +2000,36 @@ body.dark .task-tag.tag-recur {
 
   /* Chore/habit list rows: bigger touch area */
   .chore-row, .habit-row { min-height: 52px; }
+
+  /* Header: hide logo text so avatar always fits */
+  .logo span { display: none; }
+  .header-inner { gap: 10px; }
+}
+
+/* ─── 3-up month view ─── */
+.month-3up {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+.month-3up-side { display: none; }
+.month-3up-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.month-3up-label-active { color: var(--text-1); }
+
+@media (min-width: 769px) {
+  .month-3up {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .month-3up-col { display: block; }
+  .month-3up-side { display: block; }
+  .month-cal-cell { font-size: .65rem; border-radius: 4px; }
+  .month-cal-hdr  { font-size: .55rem; }
 }
