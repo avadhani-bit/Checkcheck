@@ -731,7 +731,6 @@ function renderProjectCompleted() {
   document.getElementById('btn-add-task').onclick = () => openTaskModal(p);
   document.getElementById('btn-edit-proj').onclick = () => openProjectModal(p);
 
-  document.getElementById('btn-back-tasks').onclick = () => { state.workView = 'board'; render(); };
   document.getElementById('prev-month').onclick = () => {
     if (state.projectMonth === 0) { state.projectMonth = 11; state.projectYear--; }
     else state.projectMonth--;
@@ -2415,6 +2414,7 @@ function renderReports() {
     `}
   `;
 
+  document.getElementById('btn-back-tasks').onclick = () => { state.workView = 'board'; render(); };
   document.getElementById('prev-month').onclick = () => {
     if (state.reportMonth === 0) { state.reportMonth = 11; state.reportYear--; }
     else state.reportMonth--;

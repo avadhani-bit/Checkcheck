@@ -1867,10 +1867,18 @@ body.dark .task-tag.tag-recur {
   width: 14px;
 }
 .year-weeks { display: flex; gap: 2px; }
-.year-week  { display: flex; flex-direction: column; gap: 2px; }
-/* Month boundary divider with spacing gap */
-.year-week.month-start { box-shadow: -5px 0 0 0 var(--text-3); }
+.year-week  { display: flex; flex-direction: column; gap: 2px; position: relative; }
+/* Month boundary: 10px gap with a 1px divider centered via ::before pseudo-element */
 .year-week.month-start:not(:first-child) { margin-left: 10px; }
+.year-week.month-start:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-3);
+}
 .year-graph-months span.month-gap { margin-left: 10px; }
 .year-cell  {
   width: 11px; height: 11px;
