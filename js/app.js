@@ -2556,6 +2556,10 @@ function openTodoModal(existing) {
         <option value="monthly" ${curRecurrence === 'monthly' ? 'selected' : ''}>Monthly</option>
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Reminder <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
+      <input class="form-input" id="todo-reminder" type="time" value="${existing?.reminderTime || ''}" />
+    </div>
     <div class="form-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-save">${isEdit ? 'Save' : 'Add'}</button>
@@ -2564,12 +2568,13 @@ function openTodoModal(existing) {
 
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save').onclick = () => {
-    const title      = document.getElementById('todo-name').value.trim();
-    const dueDate    = document.getElementById('todo-due').value || null;
-    const recurrence = document.getElementById('todo-recurrence').value;
+    const title        = document.getElementById('todo-name').value.trim();
+    const dueDate      = document.getElementById('todo-due').value || null;
+    const recurrence   = document.getElementById('todo-recurrence').value;
+    const reminderTime = document.getElementById('todo-reminder').value || null;
     if (!title) { document.getElementById('todo-name').focus(); return; }
-    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence });
-    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime });
+    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, completedAt: null, createdAt: Date.now() });
     closeModal();
     renderTodoPanel();
   };
@@ -2619,6 +2624,8 @@ function openChoreModal(existing) {
     '<input class="form-input" id="chore-timer" type="number" min="1" max="120" value="' + timerVal + '" placeholder="mins" style="max-width:90px" />' +
     '<span style="font-size:.85rem;color:var(--text-3);align-self:center">minutes</span>' +
     '</div></div>' +
+    '<div class="form-group"><label class="form-label">Push reminder <span style="font-weight:400;color:var(--text-3)">(fires only when due)</span></label>' +
+    '<input class="form-input" id="chore-reminder" type="time" value="' + (existing && existing.reminderTime ? existing.reminderTime : '') + '" /></div>' +
     '<div class="form-group">' +
     '<label class="form-label">Icon</label>' +
     '<div class="color-picker" style="flex-wrap:wrap;gap:8px">' + emojiDots + '</div>' +
@@ -2648,11 +2655,12 @@ function openChoreModal(existing) {
     const intervalDays = rawNum * unitMult;
     const timerRaw     = parseInt(document.getElementById('chore-timer').value);
     const timerMinutes = timerRaw > 0 ? timerRaw : null;
+    const choreReminder = document.getElementById('chore-reminder') ? (document.getElementById('chore-reminder').value || null) : null;
     if (!title) { document.getElementById('chore-name').focus(); return; }
     if (isEdit) {
-      DB.update('chores', existing.id, { title, intervalDays, emoji: pickedEmoji, timerMinutes });
+      DB.update('chores', existing.id, { title, intervalDays, emoji: pickedEmoji, timerMinutes, reminderTime: choreReminder });
     } else {
-      DB.add('chores', { id: uid(), title, emoji: pickedEmoji, intervalDays, timerMinutes, lastDone: null, history: [], createdAt: Date.now() });
+      DB.add('chores', { id: uid(), title, emoji: pickedEmoji, intervalDays, timerMinutes, reminderTime: choreReminder, lastDone: null, history: [], createdAt: Date.now() });
     }
     closeModal();
     if (state.activeChore) renderChoreDetail();
