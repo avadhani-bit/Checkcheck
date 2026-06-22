@@ -1868,6 +1868,8 @@ body.dark .task-tag.tag-recur {
 }
 .year-weeks { display: flex; gap: 2px; }
 .year-week  { display: flex; flex-direction: column; gap: 2px; }
+/* Month boundary divider */
+.year-week.month-start { margin-left: 4px; border-left: 1.5px solid var(--border); padding-left: 3px; }
 .year-cell  {
   width: 11px; height: 11px;
   border-radius: 2px;
@@ -1981,14 +1983,36 @@ body.dark .task-tag.tag-recur {
 @media (max-width: 768px) {
   .main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
 
-  /* Larger tap targets on checkboxes and action buttons */
-  [data-check-id],
-  .swc-check,
-  .task-action-btn,
-  .header-icon-btn {
-    min-width: 44px;
-    min-height: 44px;
+  /* ── Task rows: tighter on mobile so text has more room ── */
+  .task-row {
+    padding: 8px 12px;
+    gap: 8px;
   }
+  /* Checkbox stays visually small but has a big invisible hit area */
+  .task-check {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    /* expand touch area without consuming layout space */
+    padding: 11px;
+    margin: -11px;
+    box-sizing: content-box;
+  }
+  /* Hide hover-only action buttons on mobile (use long-press / edit flow) */
+  .task-actions { display: none; }
+
+  /* ── Chore rows: compact, use swipe-to-action ── */
+  .chore-row {
+    padding: 10px 14px;
+    gap: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .chore-icon { width: 32px; height: 32px; font-size: .95rem; }
+  .chore-name { font-size: .85rem; }
+  .chore-status { font-size: .73rem; }
+  /* Hide edit/delete icons on mobile — actions via swipe */
+  .chore-edit-btn, .chore-delete-btn { display: none; }
 
   /* Habit mark-done button more tappable */
   .habit-mark-btn { padding: 10px 20px; font-size: .9rem; }
@@ -2000,16 +2024,70 @@ body.dark .task-tag.tag-recur {
   .page-title { font-size: 1.15rem; }
 
   /* Chore/habit list rows: bigger touch area */
-  .chore-row, .habit-row { min-height: 52px; }
+  .habit-row { min-height: 48px; }
 
   /* Header: hide logo text, tighten spacing so avatar always fits */
   .logo span { display: none; }
   .header-inner { gap: 8px; padding: 0 12px; }
-  /* Shrink toggle buttons so they don't crowd the avatar */
   .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
   .mode-toggle-pill .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
-  /* Never let the avatar be pushed off screen */
-  #user-btn { flex-shrink: 0; }
+  #user-btn, #notif-btn { flex-shrink: 0; }
+}
+
+/* ── Chore swipe-to-action (mobile) ── */
+.chore-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  transition: transform .2s ease;
+  will-change: transform;
+}
+.chore-swipe-actions {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  display: flex;
+  align-items: stretch;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.chore-swipe-actions.visible {
+  pointer-events: auto;
+  opacity: 1;
+}
+.chore-swipe-done {
+  background: var(--green);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chore-swipe-edit {
+  background: var(--accent);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.chore-swipe-delete {
+  background: var(--red);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 /* ─── 3-up month view ─── */

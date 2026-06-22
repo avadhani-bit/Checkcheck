@@ -1062,6 +1062,11 @@ function renderChoresPanel() {
   document.getElementById('btn-add-chore').onclick = () => openChoreModal();
 
   // Mark done
+  // Init swipe-to-action on each chore row
+  document.querySelectorAll('[data-chore-id]').forEach(rowEl => {
+    initChoreSwipe(rowEl, rowEl.dataset.choreId);
+  });
+
   document.querySelectorAll('[data-chore-done]').forEach(el => {
     el.onclick = e => {
       e.stopPropagation();
@@ -1129,26 +1134,101 @@ function choreListRow(c) {
   const status = c._status || choreStatus(c);
   const colors = { overdue: '#FEE2E2', late: '#FFEDD5', soon: '#FEF9C3', ok: '#D1FAE5', never: '#F3F4F6' };
   const bg     = colors[status.key] || colors.never;
+  const timerBtn = c.timerMinutes
+    ? `<button class="chore-timer-list-btn" data-chore-timer="${c.id}" data-timer-mins="${c.timerMinutes}" title="Start ${c.timerMinutes}min timer">⏱${c.timerMinutes}m</button>`
+    : '';
 
   return `
-    <div class="chore-row" data-chore-detail="${c.id}" style="cursor:pointer">
-      <div class="chore-icon" style="background:${bg}">${c.emoji || '🔧'}</div>
-      <div class="chore-body">
-        <div class="chore-name">${escHtml(c.title)}</div>
-        <div class="chore-status ${status.cls}">${status.text}</div>
+    <div class="chore-row" data-chore-id="${c.id}" style="cursor:pointer;overflow:hidden;position:relative">
+      <div class="chore-row-inner" data-chore-detail="${c.id}">
+        <div class="chore-icon" style="background:${bg}">${c.emoji || '🔧'}</div>
+        <div class="chore-body">
+          <div class="chore-name">${escHtml(c.title)}</div>
+          <div class="chore-status ${status.cls}">${status.text}</div>
+        </div>
+        <div class="chore-actions">
+          ${timerBtn}
+          <button class="chore-done-btn" data-chore-done="${c.id}">✓ Done</button>
+          <button class="task-action-btn chore-edit-btn" data-chore-edit="${c.id}" title="Edit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="task-action-btn delete chore-delete-btn" data-chore-delete="${c.id}" title="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="chore-actions">
-        ${c.timerMinutes ? `<button class="chore-timer-list-btn" data-chore-timer="${c.id}" data-timer-mins="${c.timerMinutes}" title="Start ${c.timerMinutes}min timer">⏱${c.timerMinutes}m</button>` : ''}
-        <button class="chore-done-btn" data-chore-done="${c.id}">✓ Done</button>
-        <button class="task-action-btn" data-chore-edit="${c.id}" title="Edit">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="task-action-btn delete" data-chore-delete="${c.id}" title="Delete">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>
+      <div class="chore-swipe-actions" id="swipe-actions-${c.id}">
+        <div class="chore-swipe-done" data-chore-done="${c.id}">✓ Done</div>
+        <div class="chore-swipe-edit" data-chore-edit="${c.id}">✏️</div>
+        <div class="chore-swipe-delete" data-chore-delete="${c.id}">🗑</div>
       </div>
     </div>
   `;
+}
+
+function initChoreSwipe(rowEl, id) {
+  const inner = rowEl.querySelector('.chore-row-inner');
+  const actions = rowEl.querySelector('.chore-swipe-actions');
+  if (!inner || !actions) return;
+  let startX = 0, startY = 0, dragging = false, revealed = false;
+  const THRESHOLD = 55;
+
+  rowEl.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive: true });
+
+  rowEl.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx) && !revealed) { dragging = false; return; }
+    if (dx < 0) {
+      const clamp = Math.max(-130, dx);
+      inner.style.transform = 'translateX(' + clamp + 'px)';
+      const pct = Math.min(1, Math.abs(clamp) / THRESHOLD);
+      actions.style.opacity = pct;
+      actions.style.pointerEvents = 'none';
+    } else if (revealed && dx > 0) {
+      const clamp = Math.min(0, -130 + dx);
+      inner.style.transform = 'translateX(' + clamp + 'px)';
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  rowEl.addEventListener('touchend', e => {
+    if (!dragging) return;
+    dragging = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    if (!revealed && dx < -THRESHOLD) {
+      inner.style.transform = 'translateX(-130px)';
+      actions.style.opacity = '1';
+      actions.style.pointerEvents = 'auto';
+      actions.classList.add('visible');
+      revealed = true;
+      // close on next tap elsewhere
+      setTimeout(() => {
+        document.addEventListener('touchstart', function close(ev) {
+          if (!rowEl.contains(ev.target)) {
+            inner.style.transform = '';
+            actions.style.opacity = '0';
+            actions.classList.remove('visible');
+            revealed = false;
+          }
+          document.removeEventListener('touchstart', close);
+        }, { once: true });
+      }, 50);
+    } else if (revealed && dx > THRESHOLD / 2) {
+      inner.style.transform = '';
+      actions.style.opacity = '0';
+      actions.classList.remove('visible');
+      revealed = false;
+    } else {
+      inner.style.transform = revealed ? 'translateX(-130px)' : '';
+      actions.style.opacity = revealed ? '1' : '0';
+    }
+  });
 }
 
 function markChoreDone(id) {
@@ -2723,8 +2803,10 @@ function init() {
           '<div style="font-size:.75rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(u && u.email || '') + '</div>' +
         '</div>' +
       '</div>' +
+      '<button id="dropdown-reminders" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:6px">\uD83D\uDD14 Reminders</button>' +
       '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
     document.body.appendChild(dropdown);
+    document.getElementById('dropdown-reminders').onclick = (e) => { e.stopPropagation(); dropdown.remove(); openRemindersModal(); };
     document.getElementById('signout-btn').onclick = () => {
       _fbAuth.signOut().then(() => window.location.reload());
     };
