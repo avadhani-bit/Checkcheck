@@ -1868,8 +1868,10 @@ body.dark .task-tag.tag-recur {
 }
 .year-weeks { display: flex; gap: 2px; }
 .year-week  { display: flex; flex-direction: column; gap: 2px; }
-/* Month boundary divider — box-shadow only, zero layout impact (keeps labels aligned) */
+/* Month boundary divider with spacing gap */
 .year-week.month-start { box-shadow: -2px 0 0 0 var(--text-3); }
+.year-week.month-start:not(:first-child) { margin-left: 5px; }
+.year-graph-months span.month-gap { margin-left: 5px; }
 .year-cell  {
   width: 11px; height: 11px;
   border-radius: 2px;
@@ -2021,97 +2023,4 @@ body.dark .task-tag.tag-recur {
   /* Don't shrink page title too much */
   .page-title { font-size: 1.15rem; }
 
-  /* Chore/habit list rows: bigger touch area */
-  .habit-row { min-height: 48px; }
-
-  /* Header: hide logo text, tighten spacing so avatar always fits */
-  .logo span { display: none; }
-  .header-inner { gap: 8px; padding: 0 12px; }
-  .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
-  .mode-toggle-pill .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
-  #user-btn, #notif-btn { flex-shrink: 0; }
-}
-
-/* ── Chore swipe-to-action (mobile) ── */
-.chore-row-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  transition: transform .2s ease;
-  will-change: transform;
-}
-.chore-swipe-actions {
-  position: absolute;
-  right: 0; top: 0; bottom: 0;
-  display: flex;
-  align-items: stretch;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .15s;
-}
-.chore-swipe-actions.visible {
-  pointer-events: auto;
-  opacity: 1;
-}
-.chore-swipe-done {
-  background: var(--green);
-  color: #fff;
-  font-size: .8rem;
-  font-weight: 700;
-  padding: 0 18px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.chore-swipe-edit {
-  background: var(--accent);
-  color: #fff;
-  font-size: .8rem;
-  font-weight: 700;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-.chore-swipe-delete {
-  background: var(--red);
-  color: #fff;
-  font-size: .8rem;
-  font-weight: 700;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-/* ─── 3-up month view ─── */
-.month-3up {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
-}
-.month-3up-side { display: none; }
-.month-3up-label {
-  font-size: .72rem;
-  font-weight: 600;
-  color: var(--text-3);
-  text-align: center;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.month-3up-label-active { color: var(--text-1); }
-
-@media (min-width: 769px) {
-  .month-3up {
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-  .month-3up-col { display: block; }
-  .month-3up-side { display: block; }
-  .month-cal-cell { font-size: .65rem; border-radius: 4px; }
-  .month-cal-hdr  { font-size: .55rem; }
-}
+  /* Chore/habit l

@@ -731,6 +731,7 @@ function renderProjectCompleted() {
   document.getElementById('btn-add-task').onclick = () => openTaskModal(p);
   document.getElementById('btn-edit-proj').onclick = () => openProjectModal(p);
 
+  document.getElementById('btn-back-tasks').onclick = () => { state.workView = 'board'; render(); };
   document.getElementById('prev-month').onclick = () => {
     if (state.projectMonth === 0) { state.projectMonth = 11; state.projectYear--; }
     else state.projectMonth--;
@@ -2140,9 +2141,13 @@ function yearlyGraph(habit, color, year) {
   }
   const dayLabels = ['S','M','T','W','T','F','S'];
   const monthRow  = Array(weeks.length).fill('');
+  const monthStartWeeks = new Set(monthLabels.map(ml => ml.week));
   monthLabels.forEach(ml => { monthRow[ml.week] = ml.label; });
   return '<div class="year-graph-wrap">' +
-    '<div class="year-graph-months">' + monthRow.map(l => '<span>' + l + '</span>').join('') + '</div>' +
+    '<div class="year-graph-months">' + monthRow.map(function(l, i) {
+      var cls = (i > 0 && monthStartWeeks.has(i)) ? ' class="month-gap"' : '';
+      return '<span' + cls + '>' + l + '</span>';
+    }).join('') + '</div>' +
     '<div class="year-graph-body">' +
       '<div class="year-day-labels">' + dayLabels.map((l, i) => '<div class="year-day-lbl">' + (i % 2 === 1 ? l : '') + '</div>').join('') + '</div>' +
       '<div class="year-weeks">' +
@@ -2361,6 +2366,10 @@ function renderReports() {
   main().innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
+        <button id="btn-back-tasks" style="background:none;border:none;color:var(--text-2);font-size:.82rem;cursor:pointer;padding:0 0 2px;display:flex;align-items:center;gap:4px;margin-bottom:4px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          Tasks
+        </button>
         <div class="page-title">Reports</div>
         <div class="page-subtitle">Work task completions</div>
       </div>
@@ -2749,6 +2758,7 @@ function _appInit() {
     btn.onclick = () => {
       state.mode          = btn.dataset.mode;
       state.prevMode      = state.mode;
+      state.workView      = 'board'; // always go to board when switching modes
       state.activeProject = null;
       state.activeChore   = null;
       render();
