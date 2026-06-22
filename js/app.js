@@ -334,8 +334,7 @@ function renderWork() {
         <div class="page-title">Work</div>
       </div>
       <div class="work-tabs">
-        <button class="work-tab ${state.workView === 'board' ? 'active' : ''}" data-work-view="board">Board</button>
-        <button class="work-tab ${state.workView === 'reports' ? 'active' : ''}" data-work-view="reports">Reports</button>
+        <button class="work-tab ${state.workView === 'board' ? 'active' : ''}" data-work-view="board">Tasks</button>
       </div>
       <button class="add-btn" id="btn-add-project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -513,7 +512,7 @@ function workSummaryHTML(projects, allTasks) {
   // Build day buckets: no-date, today, tomorrow, +2, +3
   function dayStr(offsetDays) {
     const d = new Date(now); d.setDate(d.getDate() + offsetDays);
-    return d.toISOString().slice(0,10);
+    return ldStr(d); // use local date, not UTC
   }
   const todayStr = dayStr(0);
   const cols = [
@@ -530,9 +529,8 @@ function workSummaryHTML(projects, allTasks) {
   // Overdue bucket shows in today column
   open.forEach(t => {
     if (!t.dueDate) { cols[0].tasks.push(t); return; }
-    const ds = new Date(t.dueDate); ds.setHours(0,0,0,0);
-    const s  = ds.toISOString().slice(0,10);
-    if (s <= todayStr)      cols[1].tasks.push(t);
+    const s = t.dueDate; // already a local YYYY-MM-DD string
+    if (s <= todayStr)        cols[1].tasks.push(t);
     else if (s === dayStr(1)) cols[2].tasks.push(t);
     else if (s === dayStr(2)) cols[3].tasks.push(t);
     else if (s === dayStr(3)) cols[4].tasks.push(t);
@@ -541,7 +539,7 @@ function workSummaryHTML(projects, allTasks) {
   function taskCard(t) {
     const proj  = projects.find(p => p.id === t.projectId);
     const color = proj ? (proj.color || '#6366F1') : '#6366F1';
-    const overdue = t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < now.getTime();
+    const overdue = t.dueDate && t.dueDate < todayStr;
     return '<div class="swc-task" draggable="true" data-task-id="' + t.id + '" data-summary-check="' + t.id + '">' +
       '<div class="swc-stripe" style="background:' + color + '"></div>' +
       '<div class="swc-body">' +
@@ -2110,15 +2108,28 @@ function yearlyGraph(habit, color, year) {
   let cur = new Date(start); let lastMonth = -1;
   for (let w = 0; w < 54; w++) {
     const cells = [];
+    // Pre-scan: find if a new month starts mid-column (d > 0)
+    // so we can blank out the preceding days of the old month
+    let monthBoundaryAt = -1;
+    const scan = new Date(cur);
+    for (let sd = 0; sd < 7; sd++) {
+      if (sd > 0 && scan.getFullYear() === year && scan.getDate() === 1) {
+        monthBoundaryAt = sd; break;
+      }
+      scan.setDate(scan.getDate() + 1);
+    }
     for (let d = 0; d < 7; d++) {
       const s = ldStr(cur);
       const outOfYear = cur.getFullYear() !== year;
+      // Days before a mid-week month boundary belong to the previous month — hide them
+      const prevMonthCell = !outOfYear && monthBoundaryAt > 0 && d < monthBoundaryAt;
       const isFuture  = cur > today;
-      const isDone    = !outOfYear && !isFuture && done.has(s);
+      const isDone    = !outOfYear && !prevMonthCell && !isFuture && done.has(s);
       const isToday   = s === todayStr;
-      const isTarget  = !outOfYear && isHabitTargetDay(habit, cur);
-      cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear });
-      if (d === 0 && !outOfYear && cur.getMonth() !== lastMonth) {
+      const isTarget  = !outOfYear && !prevMonthCell && isHabitTargetDay(habit, cur);
+      cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear: outOfYear || prevMonthCell });
+      // Place month label at whatever day-of-week the month starts (not just Sunday)
+      if (!outOfYear && cur.getMonth() !== lastMonth) {
         monthLabels.push({ week: w, label: cur.toLocaleDateString('en-US', { month: 'short' }) });
         lastMonth = cur.getMonth();
       }
@@ -2348,11 +2359,6 @@ function renderReports() {
   const isNextDisabled = year === now.getFullYear() && month === now.getMonth();
 
   main().innerHTML = `
-    <div class="work-tabs">
-      <button class="work-tab" data-work-view="board">Board</button>
-      <button class="work-tab active" data-work-view="reports">Reports</button>
-    </div>
-
     <div class="page-header">
       <div class="page-header-left">
         <div class="page-title">Reports</div>
