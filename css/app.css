@@ -2140,12 +2140,12 @@ body.dark .task-tag.tag-recur {
   .logo span { display: none; }
   .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
   #user-btn  { flex-shrink: 0; }
-  #notif-btn { flex-shrink: 0; }
   #user-btn .user-avatar,
   #user-btn > div { flex-shrink: 0; }
 
-  /* Tab bar: no-wrap, scroll horizontally */
-  .tab-btn { padding: 7px 14px; white-space: nowrap; }
+  /* Tab bar: full width on mobile */
+  .section-tabs { display: flex; width: 100%; }
+  .tab-btn { flex: 1; text-align: center; padding: 7px 8px; white-space: nowrap; }
 
   /* Work summary: horizontal swipe carousel — one column at a time */
   .swc-grid {

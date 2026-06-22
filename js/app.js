@@ -2805,8 +2805,6 @@ function init() {
     _fbAuth.signInWithRedirect(provider);
   };
 
-  document.getElementById('notif-btn').onclick = function() { openRemindersModal(); };
-
   // User button → account dropdown
   document.getElementById('user-btn').onclick = (e) => {
     e.stopPropagation();
@@ -2828,7 +2826,6 @@ function init() {
         '</div>' +
       '</div>' +
       '<button id="dropdown-reports" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:2px">\uD83D\uDCCB Reports</button>' +
-      '<button id="dropdown-reminders" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:6px">\uD83D\uDD14 Reminders</button>' +
       '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
     document.body.appendChild(dropdown);
     // Position below the button, aligned to its right edge
@@ -2838,7 +2835,6 @@ function init() {
     dropdown.style.top  = (btnRect.bottom + 6) + 'px';
     dropdown.style.left = left + 'px';
     document.getElementById('dropdown-reports').onclick = (e) => { e.stopPropagation(); dropdown.remove(); state.mode = 'work'; state.workView = 'reports'; render(); };
-    document.getElementById('dropdown-reminders').onclick = (e) => { e.stopPropagation(); dropdown.remove(); openRemindersModal(); };
     document.getElementById('signout-btn').onclick = () => {
       _fbAuth.signOut().then(() => window.location.reload());
     };
@@ -2856,12 +2852,10 @@ function init() {
     if (!user) {
       document.getElementById('auth-gate').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
-      document.getElementById('notif-btn').style.display = 'none';
       return;
     }
     // Signed in — show app, update avatar
     document.getElementById('auth-gate').style.display = 'none';
-    document.getElementById('notif-btn').style.display = '';
     document.getElementById('app').style.display = '';
     const avatar  = document.getElementById('user-avatar');
     const userBtn = document.getElementById('user-btn');
