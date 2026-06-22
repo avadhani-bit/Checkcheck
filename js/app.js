@@ -2796,39 +2796,41 @@ function init() {
   document.getElementById('auth-gate').style.display = 'none';
   document.getElementById('app').style.display = 'none';
 
-  // Handle redirect result (mobile redirect flow)
-  // Must await this before showing auth gate — otherwise redirect result is lost on some browsers
-  _fbAuth.getRedirectResult().then(result => {
-    if (result && result.user) {
-      // Already handled by onAuthStateChanged below; no extra action needed
-      console.log('Redirect sign-in successful:', result.user.email);
-    }
-  }).catch(e => {
-    console.warn('Redirect result error:', e);
-    // If redirect failed, make sure auth gate is visible so user can retry
-    if (!_fbAuth.currentUser) {
-      document.getElementById('auth-gate').style.display = 'flex';
-      document.getElementById('app').style.display = 'none';
+  // Google sign-in — popup-first (works on all modern browsers including mobile Chrome/Opera).
+  // Redirect is only used as fallback if popup is explicitly blocked.
+  const signinBtn = document.getElementById('google-signin-btn');
+  const signinErr = document.createElement('div');
+  signinErr.style.cssText = 'color:#ef4444;font-size:.8rem;margin-top:8px;text-align:center;max-width:280px;display:none';
+  signinBtn.parentNode.insertBefore(signinErr, signinBtn.nextSibling);
+
+  function showSigninError(msg) {
+    signinErr.textContent = msg;
+    signinErr.style.display = 'block';
+    signinBtn.disabled = false;
+    signinBtn.style.opacity = '';
+  }
+
+  signinBtn.onclick = () => {
+    signinBtn.disabled = true;
+    signinBtn.style.opacity = '0.6';
+    signinErr.style.display = 'none';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    _fbAuth.signInWithPopup(provider).catch(e => {
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+        // Popup blocked — fall back to redirect
+        _fbAuth.signInWithRedirect(provider);
+      } else {
+        showSigninError('Sign-in failed: ' + (e.message || e.code));
+      }
+    });
+  };
+
+  // Handle redirect fallback result on page load
+  _fbAuth.getRedirectResult().catch(e => {
+    if (e && e.code !== 'auth/no-auth-event') {
+      showSigninError('Sign-in failed: ' + (e.message || e.code));
     }
   });
-
-  // Google sign-in button
-  // Use popup on desktop (faster UX), redirect on mobile (more reliable)
-  document.getElementById('google-signin-btn').onclick = () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    if (window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      _fbAuth.signInWithRedirect(provider);
-    } else {
-      _fbAuth.signInWithPopup(provider).catch(e => {
-        // Popup blocked? Fall back to redirect
-        if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
-          _fbAuth.signInWithRedirect(provider);
-        } else {
-          console.warn('Popup sign-in error:', e);
-        }
-      });
-    }
-  };
 
   // User button → account dropdown
   document.getElementById('user-btn').onclick = (e) => {
