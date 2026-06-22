@@ -2792,17 +2792,42 @@ function _appInit() {
 }
 
 function init() {
-  // Show auth gate while we wait for Firebase
-  document.getElementById('auth-gate').style.display = 'flex';
+  // Hide both while Firebase resolves (avoids flash of auth gate after redirect)
+  document.getElementById('auth-gate').style.display = 'none';
   document.getElementById('app').style.display = 'none';
 
-  // Handle redirect result first (mobile redirect flow)
-  _fbAuth.getRedirectResult().catch(e => console.warn('Redirect result error:', e));
+  // Handle redirect result (mobile redirect flow)
+  // Must await this before showing auth gate — otherwise redirect result is lost on some browsers
+  _fbAuth.getRedirectResult().then(result => {
+    if (result && result.user) {
+      // Already handled by onAuthStateChanged below; no extra action needed
+      console.log('Redirect sign-in successful:', result.user.email);
+    }
+  }).catch(e => {
+    console.warn('Redirect result error:', e);
+    // If redirect failed, make sure auth gate is visible so user can retry
+    if (!_fbAuth.currentUser) {
+      document.getElementById('auth-gate').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+    }
+  });
 
-  // Google sign-in button — use redirect (works on iOS Safari + Android)
+  // Google sign-in button
+  // Use popup on desktop (faster UX), redirect on mobile (more reliable)
   document.getElementById('google-signin-btn').onclick = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    _fbAuth.signInWithRedirect(provider);
+    if (window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      _fbAuth.signInWithRedirect(provider);
+    } else {
+      _fbAuth.signInWithPopup(provider).catch(e => {
+        // Popup blocked? Fall back to redirect
+        if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+          _fbAuth.signInWithRedirect(provider);
+        } else {
+          console.warn('Popup sign-in error:', e);
+        }
+      });
+    }
   };
 
   // User button → account dropdown
