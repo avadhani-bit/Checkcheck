@@ -2117,8 +2117,9 @@ function yearlyGraph(habit, color, year) {
       const isToday   = s === todayStr;
       const isTarget  = !outOfYear && isHabitTargetDay(habit, cur);
       cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear });
-      // Label fires at the exact day the month starts (not just Sundays)
-      if (!outOfYear && cur.getMonth() !== lastMonth) {
+      // Label fires at the Sunday column of the first week of each month (GitHub standard)
+      // Keeps all days visually under the correct month heading
+      if (d === 0 && !outOfYear && cur.getMonth() !== lastMonth) {
         monthLabels.push({ week: w, label: cur.toLocaleDateString('en-US', { month: 'short' }) });
         lastMonth = cur.getMonth();
       }
