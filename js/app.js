@@ -1987,25 +1987,7 @@ function renderHabitDetail() {
       if (_view === 'year') {
         graph = yearlyGraph(habit, color, _yr);
       } else {
-        var prevMo = _mo === 0 ? 11 : _mo - 1;
-        var prevYr = _mo === 0 ? _yr - 1 : _yr;
-        var nextMo = _mo === 11 ? 0 : _mo + 1;
-        var nextYr = _mo === 11 ? _yr + 1 : _yr;
-        var fmtMo = function(y, m) { return new Date(y, m).toLocaleDateString('en-US', {month:'short', year:'numeric'}); };
-        graph = '<div class="month-3up">' +
-          '<div class="month-3up-col month-3up-side">' +
-            '<div class="month-3up-label">' + fmtMo(prevYr, prevMo) + '</div>' +
-            monthGraph(habit, color, prevYr, prevMo) +
-          '</div>' +
-          '<div class="month-3up-col">' +
-            '<div class="month-3up-label month-3up-label-active">' + fmtMo(_yr, _mo) + '</div>' +
-            monthGraph(habit, color, _yr, _mo) +
-          '</div>' +
-          '<div class="month-3up-col month-3up-side">' +
-            '<div class="month-3up-label">' + fmtMo(nextYr, nextMo) + '</div>' +
-            monthGraph(habit, color, nextYr, nextMo) +
-          '</div>' +
-        '</div>';
+        graph = '<div class="month-single">' + monthGraph(habit, color, _yr, _mo) + '</div>';
       }
       var todayBtn = isCurrent ? '' :
         '<button id="hg-today" style="font-size:.72rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;font-family:inherit">Today</button>';
