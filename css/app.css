@@ -1868,8 +1868,8 @@ body.dark .task-tag.tag-recur {
 }
 .year-weeks { display: flex; gap: 2px; }
 .year-week  { display: flex; flex-direction: column; gap: 2px; }
-/* Month boundary divider */
-.year-week.month-start { margin-left: 4px; border-left: 1.5px solid var(--border); padding-left: 3px; }
+/* Month boundary divider — box-shadow only, zero layout impact (keeps labels aligned) */
+.year-week.month-start { box-shadow: -2px 0 0 0 var(--text-3); }
 .year-cell  {
   width: 11px; height: 11px;
   border-radius: 2px;

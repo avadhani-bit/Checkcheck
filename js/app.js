@@ -941,7 +941,7 @@ function todoRow(t) {
   return `
     <div class="task-row ${t.done ? 'done' : ''}">
       <div class="task-check ${t.done ? 'checked' : ''}" data-todo-check="${t.id}"></div>
-      <div class="task-body">
+      <div class="task-body" data-todo-edit="${t.id}" style="cursor:pointer">
         <div class="task-name">${escHtml(t.title)}</div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
       </div>
