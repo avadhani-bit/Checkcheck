@@ -1869,7 +1869,7 @@ body.dark .task-tag.tag-recur {
 .year-weeks { display: flex; gap: 2px; }
 .year-week  { display: flex; flex-direction: column; gap: 2px; }
 /* Month boundary divider with spacing gap */
-.year-week.month-start { box-shadow: -5px 0 0 1px var(--text-3); }
+.year-week.month-start { box-shadow: -5px 0 0 0 var(--text-3); }
 .year-week.month-start:not(:first-child) { margin-left: 10px; }
 .year-graph-months span.month-gap { margin-left: 10px; }
 .year-cell  {
@@ -1982,6 +1982,21 @@ body.dark .task-tag.tag-recur {
 .summary-due-date.overdue { color: var(--red); }
 .summary-due-list { display: flex; flex-direction: column; gap: 6px; }
 
+
+/* ─── CHORE SWIPE PANEL ─── */
+/* Hidden by default; JS reveals via translateX on mobile touch */
+.chore-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  transition: transform .2s ease;
+  flex-shrink: 0;
+}
+.chore-swipe-actions {
+  display: none; /* desktop: not used */
+}
+
 @media (max-width: 768px) {
   .main { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
 
@@ -2023,4 +2038,52 @@ body.dark .task-tag.tag-recur {
   /* Don't shrink page title too much */
   .page-title { font-size: 1.15rem; }
 
-  /* Chore/habit l
+  /* Chore/habit labels readable */
+  .chore-status { font-size: .73rem; }
+
+  /* Chore swipe panel: absolute behind the row, revealed by JS translateX */
+  .chore-swipe-actions {
+    display: flex;
+    align-items: stretch;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 130px;
+    opacity: 0;
+    pointer-events: none;
+    border-radius: 0;
+    overflow: hidden;
+  }
+  .chore-swipe-done,
+  .chore-swipe-edit,
+  .chore-swipe-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 1;
+    border: none;
+    transition: filter .1s;
+  }
+  .chore-swipe-done   { background: #10B981; color: #fff; }
+  .chore-swipe-edit   { background: #6366F1; color: #fff; font-size: 1rem; }
+  .chore-swipe-delete { background: #EF4444; color: #fff; font-size: 1rem; }
+
+  /* Header: tighten on mobile so avatar stays visible */
+  .header-inner { gap: 8px; padding: 0 12px; }
+  .logo span { display: none; }
+  .mode-btn { padding: 6px 14px; font-size: 0.82rem; }
+  #user-btn  { flex-shrink: 0; }
+  #notif-btn { flex-shrink: 0; }
+  #user-btn .user-avatar,
+  #user-btn > div { flex-shrink: 0; }
+
+  /* Tab bar: no-wrap, scroll horizontally */
+  .tab-btn { padding: 7px 14px; white-space: nowrap; }
+
+  /* Work summary: single column on narrow */
+  .swc-grid { grid-template-columns: repeat(3, 1fr); overflow-x: auto; }
+}
