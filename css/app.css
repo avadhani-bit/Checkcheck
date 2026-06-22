@@ -1986,19 +1986,17 @@ body.dark .task-tag.tag-recur {
   /* ── Task rows: tighter on mobile so text has more room ── */
   .task-row {
     padding: 8px 12px;
-    gap: 8px;
+    gap: 10px;
   }
-  /* Checkbox stays visually small but has a big invisible hit area */
+  /* Keep checkbox visually compact — row height provides tap area */
   .task-check {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
     flex-shrink: 0;
-    /* expand touch area without consuming layout space */
-    padding: 11px;
-    margin: -11px;
-    box-sizing: content-box;
   }
-  /* Hide hover-only action buttons on mobile (use long-press / edit flow) */
+  /* Tap the text to edit (handled via data-todo-edit on task-body) */
   .task-actions { display: none; }
 
   /* ── Chore rows: compact, use swipe-to-action ── */

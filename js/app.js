@@ -792,7 +792,7 @@ function completedTaskRow(t) {
   return `
     <div class="task-row done">
       <div class="task-check checked" data-uncheck-id="${t.id}" title="Move back to active" style="cursor:pointer"></div>
-      <div class="task-body">
+      <div class="task-body" data-todo-edit="${t.id}" style="cursor:pointer">
         <div class="task-name">${escHtml(t.title)}</div>
         ${t.completedAt
           ? `<div class="completed-task-date">Completed ${fmt.relativeDay(t.completedAt)} · ${fmt.date(t.completedAt)}</div>`
@@ -2135,14 +2135,17 @@ function yearlyGraph(habit, color, year) {
     '<div class="year-graph-body">' +
       '<div class="year-day-labels">' + dayLabels.map((l, i) => '<div class="year-day-lbl">' + (i % 2 === 1 ? l : '') + '</div>').join('') + '</div>' +
       '<div class="year-weeks">' +
-        weeks.map(cells => '<div class="year-week">' + cells.map(c => {
+        weeks.map(function(cells, wi) {
+          var isMonthStart = monthLabels.some(function(ml) { return ml.week === wi; });
+          var weekDiv = '<div class="year-week' + (isMonthStart ? ' month-start' : '') + '">';
+          return weekDiv + cells.map(c => {
           if (c.outOfYear) return '<div class="year-cell" style="background:transparent"></div>';
           const bg   = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
           const ring = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
           const todayId = c.isToday ? ' id="year-today-cell"' : '';
           if (c.isFuture) return '<div class="year-cell" style="background:' + bg + '"></div>';
           return '<div class="year-cell"' + todayId + ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer" title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
-        }).join('') + '</div>').join('') +
+          }).join('') + '</div>'; }).join('') +
       '</div>' +
     '</div>' +
     '<div class="year-legend"><span>Less</span>' +
@@ -2803,9 +2806,11 @@ function init() {
           '<div style="font-size:.75rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(u && u.email || '') + '</div>' +
         '</div>' +
       '</div>' +
+      '<button id="dropdown-reports" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:2px">\uD83D\uDCCB Reports</button>' +
       '<button id="dropdown-reminders" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:6px">\uD83D\uDD14 Reminders</button>' +
       '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
     document.body.appendChild(dropdown);
+    document.getElementById('dropdown-reports').onclick = (e) => { e.stopPropagation(); dropdown.remove(); state.mode = 'work'; state.workView = 'reports'; render(); };
     document.getElementById('dropdown-reminders').onclick = (e) => { e.stopPropagation(); dropdown.remove(); openRemindersModal(); };
     document.getElementById('signout-btn').onclick = () => {
       _fbAuth.signOut().then(() => window.location.reload());
