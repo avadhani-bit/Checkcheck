@@ -2174,8 +2174,8 @@ function monthGraph(habit, color, year, month) {
   const today    = new Date(); today.setHours(0,0,0,0);
   const todayStr = ldStr(today);
   const lastDay  = new Date(year, month + 1, 0).getDate();
-  const firstDow = new Date(year, month, 1).getDay(); // 0=Sun
-  const dayHdrs  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0 … Sun=6
+  const dayHdrs  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let html = '<div class="month-cal-grid">';
   // Header row
   dayHdrs.forEach(h => { html += '<div class="month-cal-hdr">' + h + '</div>'; });
