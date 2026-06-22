@@ -2099,68 +2099,81 @@ function yearlyGraph(habit, color, year) {
   const done     = habitDoneDays(habit);
   const today    = new Date(); today.setHours(0,0,0,0);
   const todayStr = ldStr(today);
-  // Calendar year: Jan 1 – Dec 31, padded to full Sun→Sat weeks
-  const jan1  = new Date(year, 0, 1);
-  const dec31 = new Date(year, 11, 31);
-  const start = new Date(jan1);
-  start.setDate(start.getDate() - start.getDay()); // back to Sunday
-  const weeks = []; const monthLabels = [];
-  let cur = new Date(start); let lastMonth = -1;
-  for (let w = 0; w < 54; w++) {
+  const MON_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // Day labels Mon→Sun; show every other one
+  const DAY_LABELS = ['M','T','W','T','F','S','S'];
+
+  // Build a cell grid for each month independently.
+  // Each month: rows = Mon(0)…Sun(6), columns = weeks (left→right).
+  // firstDow = 0 means month starts on Monday, 6 means Sunday.
+  function buildMonth(m) {
+    const firstDay = new Date(year, m, 1);
+    const numDays  = new Date(year, m + 1, 0).getDate();
+    const firstDow = (firstDay.getDay() + 6) % 7; // Mon=0 … Sun=6
+    const numWeeks = Math.ceil((firstDow + numDays) / 7);
     const cells = [];
-    // Pre-scan: find if a new month starts mid-column (d > 0)
-    for (let d = 0; d < 7; d++) {
-      const s = ldStr(cur);
-      const outOfYear = cur.getFullYear() !== year;
-      const isFuture  = cur > today;
-      const isDone    = !outOfYear && !isFuture && done.has(s);
-      const isToday   = s === todayStr;
-      const isTarget  = !outOfYear && isHabitTargetDay(habit, cur);
-      cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear });
-      // Label fires at the Sunday column of the first week of each month (GitHub standard)
-      // Keeps all days visually under the correct month heading
-      if (d === 0 && !outOfYear && cur.getMonth() !== lastMonth) {
-        monthLabels.push({ week: w, label: cur.toLocaleDateString('en-US', { month: 'short' }) });
-        lastMonth = cur.getMonth();
+    for (let i = 0; i < numWeeks * 7; i++) {
+      const dayNum = i - firstDow + 1;
+      if (dayNum < 1 || dayNum > numDays) {
+        cells.push(null);
+      } else {
+        const d = new Date(year, m, dayNum);
+        const s = ldStr(d);
+        const isFuture = d > today;
+        const isToday  = s === todayStr;
+        const isDone   = !isFuture && done.has(s);
+        const isTarget = isHabitTargetDay(habit, d);
+        cells.push({ s, isDone, isFuture, isToday, isTarget });
       }
-      cur.setDate(cur.getDate() + 1);
     }
-    weeks.push(cells);
-    if (cur > dec31 && cur.getDay() === 0) break;
+    return { numWeeks, cells };
   }
-  const dayLabels = ['S','M','T','W','T','F','S'];
-  const monthRow  = Array(weeks.length).fill('');
-  const monthStartWeeks = new Set(monthLabels.map(ml => ml.week));
-  monthLabels.forEach(ml => { monthRow[ml.week] = ml.label; });
-  return '<div class="year-graph-wrap">' +
-    '<div class="year-graph-months">' + monthRow.map(function(l, i) {
-      var cls = (i > 0 && monthStartWeeks.has(i)) ? ' class="month-gap"' : '';
-      return '<span' + cls + '>' + l + '</span>';
-    }).join('') + '</div>' +
-    '<div class="year-graph-body">' +
-      '<div class="year-day-labels">' + dayLabels.map((l, i) => '<div class="year-day-lbl">' + (i % 2 === 1 ? l : '') + '</div>').join('') + '</div>' +
-      '<div class="year-weeks">' +
-        weeks.map(function(cells, wi) {
-          var isMonthStart = monthLabels.some(function(ml) { return ml.week === wi; });
-          var weekDiv = '<div class="year-week' + (isMonthStart ? ' month-start' : '') + '">';
-          return weekDiv + cells.map(c => {
-          if (c.outOfYear) return '<div class="year-cell" style="background:transparent"></div>';
-          const bg   = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
-          const ring = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
-          const todayId = c.isToday ? ' id="year-today-cell"' : '';
-          if (c.isFuture) return '<div class="year-cell" style="background:' + bg + '"></div>';
-          return '<div class="year-cell"' + todayId + ' data-date="' + c.s + '" style="background:' + bg + ring + ';cursor:pointer" title="' + c.s + (c.isDone ? ' ✓' : ' — click to log') + '"></div>';
-          }).join('') + '</div>'; }).join('') +
-      '</div>' +
-    '</div>' +
-    '<div class="year-legend"><span>Less</span>' +
-      '<div class="year-cell" style="background:var(--surface-2)"></div>' +
-      '<div class="year-cell" style="background:' + color + ';opacity:.3"></div>' +
-      '<div class="year-cell" style="background:' + color + ';opacity:.6"></div>' +
-      '<div class="year-cell" style="background:' + color + '"></div>' +
-    '<span>More</span></div>' +
-  '</div>';
+
+  // ── Render ──
+  // Day-label column + 12 month blocks in a horizontal flex strip
+  let html = '<div class="year-graph-wrap"><div class="yg2-outer">';
+
+  // Day-of-week label column
+  html += '<div class="yg2-daylabels"><div class="yg2-name-spacer"></div>';
+  DAY_LABELS.forEach((l, i) => {
+    html += '<div class="yg2-daylbl">' + (i % 2 === 0 ? l : '') + '</div>';
+  });
+  html += '</div>';
+
+  // Month blocks
+  for (let m = 0; m < 12; m++) {
+    const { numWeeks, cells } = buildMonth(m);
+    html += '<div class="yg2-month">';
+    html += '<div class="yg2-name">' + MON_NAMES[m] + '</div>';
+    html += '<div class="yg2-grid" style="grid-auto-columns:11px">';
+    cells.forEach(c => {
+      if (!c) {
+        html += '<div class="yg2-cell" style="background:transparent;pointer-events:none"></div>';
+      } else {
+        const bg      = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
+        const ring    = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
+        const tid     = c.isToday ? ' id="year-today-cell"' : '';
+        const ptr     = c.isFuture ? '' : ' data-date="' + c.s + '" style="cursor:pointer"';
+        html += '<div class="yg2-cell"' + tid + ptr + ' style="background:' + bg + ring + '" title="' + c.s + (c.isDone ? ' ✓' : '') + '"></div>';
+      }
+    });
+    html += '</div></div>';
+  }
+
+  html += '</div>'; // yg2-outer
+
+  // Legend
+  html += '<div class="year-legend" style="margin-top:10px"><span>Less</span>' +
+    '<div class="yg2-cell" style="background:var(--surface-2)"></div>' +
+    '<div class="yg2-cell" style="background:' + color + ';opacity:.3"></div>' +
+    '<div class="yg2-cell" style="background:' + color + ';opacity:.6"></div>' +
+    '<div class="yg2-cell" style="background:' + color + '"></div>' +
+    '<span>More</span></div>';
+
+  html += '</div>'; // year-graph-wrap
+  return html;
 }
+
 
 function monthGraph(habit, color, year, month) {
   const done     = habitDoneDays(habit);
