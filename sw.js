@@ -25,6 +25,32 @@ self.addEventListener('activate', e => {
   );
 });
 
+// Tapping a notification opens / focuses the app
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      for (const c of cs) { if ('focus' in c) return c.focus(); }
+      if (clients.openWindow) return clients.openWindow('./');
+    })
+  );
+});
+
+// Page asks SW to show a notification (needed for iOS PWA)
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SHOW_NOTIFICATION') {
+    const { title, body, tag, icon } = e.data;
+    e.waitUntil(
+      self.registration.showNotification(title, {
+        body: body || '',
+        tag: tag || 'checkcheck',
+        icon: icon || './assets/icon-192.png',
+        badge: './assets/icon-192.png',
+      })
+    );
+  }
+});
+
 self.addEventListener('fetch', e => {
   const url = e.request.url;
 

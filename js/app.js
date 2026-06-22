@@ -2701,6 +2701,8 @@ function init() {
     _fbAuth.signInWithRedirect(provider);
   };
 
+  document.getElementById('notif-btn').onclick = function() { openRemindersModal(); };
+
   // User button → account dropdown
   document.getElementById('user-btn').onclick = (e) => {
     e.stopPropagation();
@@ -2740,10 +2742,12 @@ function init() {
     if (!user) {
       document.getElementById('auth-gate').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
+      document.getElementById('notif-btn').style.display = 'none';
       return;
     }
     // Signed in — show app, update avatar
     document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('notif-btn').style.display = '';
     document.getElementById('app').style.display = '';
     const avatar  = document.getElementById('user-avatar');
     const userBtn = document.getElementById('user-btn');
