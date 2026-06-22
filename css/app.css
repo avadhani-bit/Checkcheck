@@ -2144,6 +2144,25 @@ body.dark .task-tag.tag-recur {
   /* Tab bar: no-wrap, scroll horizontally */
   .tab-btn { padding: 7px 14px; white-space: nowrap; }
 
-  /* Work summary: single column on narrow */
-  .swc-grid { grid-template-columns: repeat(3, 1fr); overflow-x: auto; }
+  /* Work summary: horizontal swipe carousel — one column at a time */
+  .swc-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+    padding-bottom: 4px;
+  }
+  .swc-grid::-webkit-scrollbar { display: none; }
+  .swc-col {
+    min-width: 88%;
+    max-width: 88%;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+    border-right: none;
+    border-left: 1px solid var(--border-light);
+    padding: 0 16px 8px;
+  }
+  .swc-col:first-child { border-left: none; padding-left: 4px; }
 }

@@ -357,6 +357,15 @@ function renderWork() {
   });
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
 
+  // Snap summary to Today column on mobile
+  requestAnimationFrame(() => {
+    const grid = document.querySelector('.swc-grid');
+    const todayCol = grid && grid.querySelector('.swc-col.today');
+    if (grid && todayCol && window.innerWidth <= 768) {
+      grid.scrollLeft = todayCol.offsetLeft;
+    }
+  });
+
   // Summary week calendar checkboxes (button inside .swc-task)
   document.querySelectorAll('.swc-check').forEach(btn => {
     btn.onclick = e => {
@@ -624,10 +633,12 @@ function workTaskRow(t) {
       <div class="task-check" data-check-id="${t.id}"></div>
       <div class="task-body" data-edit-task="${t.id}" style="cursor:pointer">
         <div class="task-name">${escHtml(t.title)}</div>
-        ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:${(due || t.tag) ? '2px' : '0'}">
+          ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+          ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
+        </div>
         ${t.notes ? `<div class="task-notes-preview">${escHtml(t.notes.slice(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : ''}
       </div>
-      ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
       <div class="task-actions">
         <button class="task-action-btn" data-edit-task="${t.id}" title="Edit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
