@@ -71,12 +71,12 @@ const fmt = {
   },
   dueLabel: isoDate => {
     if (!isoDate) return null;
-    const due = new Date(isoDate);
-    due.setHours(0, 0, 0, 0);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    // Parse YYYY-MM-DD as LOCAL date components to avoid UTC-midnight drift
+    const parts = isoDate.split('-').map(Number);
+    const due = new Date(parts[0], parts[1] - 1, parts[2]); // local midnight
+    const now = new Date(); now.setHours(0, 0, 0, 0);
     const diff = Math.round((due - now) / 86400000);
-    if (diff < 0)  return { text: `Overdue by ${-diff}d`, cls: 'overdue' };
+    if (diff < 0)   return { text: `Overdue by ${-diff}d`, cls: 'overdue' };
     if (diff === 0) return { text: 'Due today', cls: 'soon' };
     if (diff === 1) return { text: 'Due tomorrow', cls: 'soon' };
     if (diff <= 7)  return { text: `Due in ${diff}d`, cls: '' };

@@ -1869,9 +1869,9 @@ body.dark .task-tag.tag-recur {
 .year-weeks { display: flex; gap: 2px; }
 .year-week  { display: flex; flex-direction: column; gap: 2px; }
 /* Month boundary divider with spacing gap */
-.year-week.month-start { box-shadow: -2px 0 0 0 var(--text-3); }
-.year-week.month-start:not(:first-child) { margin-left: 5px; }
-.year-graph-months span.month-gap { margin-left: 5px; }
+.year-week.month-start { box-shadow: -5px 0 0 1px var(--text-3); }
+.year-week.month-start:not(:first-child) { margin-left: 10px; }
+.year-graph-months span.month-gap { margin-left: 10px; }
 .year-cell  {
   width: 11px; height: 11px;
   border-radius: 2px;
