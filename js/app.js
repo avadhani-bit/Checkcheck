@@ -2153,8 +2153,9 @@ function yearlyGraph(habit, color, year) {
         const bg      = c.isFuture ? 'transparent' : c.isDone ? color : c.isTarget ? 'var(--surface-2)' : 'var(--border-light)';
         const ring    = c.isToday ? ';outline:2px solid ' + color + ';outline-offset:1px' : '';
         const tid     = c.isToday ? ' id="year-today-cell"' : '';
-        const ptr     = c.isFuture ? '' : ' data-date="' + c.s + '" style="cursor:pointer"';
-        html += '<div class="yg2-cell"' + tid + ptr + ' style="background:' + bg + ring + '" title="' + c.s + (c.isDone ? ' ✓' : '') + '"></div>';
+        const data    = !c.isFuture ? ' data-date="' + c.s + '"' : '';
+        const cursor  = !c.isFuture ? ';cursor:pointer' : '';
+        html += '<div class="yg2-cell"' + tid + data + ' style="background:' + bg + ring + cursor + '" title="' + c.s + (c.isDone ? ' ✓' : '') + '"></div>';
       }
     });
     html += '</div></div>';
