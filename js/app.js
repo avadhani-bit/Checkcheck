@@ -2109,26 +2109,15 @@ function yearlyGraph(habit, color, year) {
   for (let w = 0; w < 54; w++) {
     const cells = [];
     // Pre-scan: find if a new month starts mid-column (d > 0)
-    // so we can blank out the preceding days of the old month
-    let monthBoundaryAt = -1;
-    const scan = new Date(cur);
-    for (let sd = 0; sd < 7; sd++) {
-      if (sd > 0 && scan.getFullYear() === year && scan.getDate() === 1) {
-        monthBoundaryAt = sd; break;
-      }
-      scan.setDate(scan.getDate() + 1);
-    }
     for (let d = 0; d < 7; d++) {
       const s = ldStr(cur);
       const outOfYear = cur.getFullYear() !== year;
-      // Days before a mid-week month boundary belong to the previous month — hide them
-      const prevMonthCell = !outOfYear && monthBoundaryAt > 0 && d < monthBoundaryAt;
       const isFuture  = cur > today;
-      const isDone    = !outOfYear && !prevMonthCell && !isFuture && done.has(s);
+      const isDone    = !outOfYear && !isFuture && done.has(s);
       const isToday   = s === todayStr;
-      const isTarget  = !outOfYear && !prevMonthCell && isHabitTargetDay(habit, cur);
-      cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear: outOfYear || prevMonthCell });
-      // Place month label at whatever day-of-week the month starts (not just Sunday)
+      const isTarget  = !outOfYear && isHabitTargetDay(habit, cur);
+      cells.push({ s, isDone, isFuture, isToday, isTarget, outOfYear });
+      // Label fires at the exact day the month starts (not just Sundays)
       if (!outOfYear && cur.getMonth() !== lastMonth) {
         monthLabels.push({ week: w, label: cur.toLocaleDateString('en-US', { month: 'short' }) });
         lastMonth = cur.getMonth();
@@ -2821,7 +2810,7 @@ function init() {
       : '<div style="width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0">' + ((u && u.email || 'U')[0].toUpperCase()) + '</div>';
     const dropdown = document.createElement('div');
     dropdown.id = 'account-dropdown';
-    dropdown.style.cssText = 'position:fixed;top:68px;right:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:500;min-width:220px;max-width:280px';
+    dropdown.style.cssText = 'position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:500;min-width:220px;max-width:280px';
     dropdown.innerHTML =
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-light)">' +
         photoHTML +
@@ -2834,6 +2823,12 @@ function init() {
       '<button id="dropdown-reminders" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:6px">\uD83D\uDD14 Reminders</button>' +
       '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
     document.body.appendChild(dropdown);
+    // Position below the button, aligned to its right edge
+    const btnRect = document.getElementById('user-btn').getBoundingClientRect();
+    const ddW = dropdown.offsetWidth || 240;
+    const left = Math.max(8, Math.min(btnRect.right - ddW, window.innerWidth - ddW - 8));
+    dropdown.style.top  = (btnRect.bottom + 6) + 'px';
+    dropdown.style.left = left + 'px';
     document.getElementById('dropdown-reports').onclick = (e) => { e.stopPropagation(); dropdown.remove(); state.mode = 'work'; state.workView = 'reports'; render(); };
     document.getElementById('dropdown-reminders').onclick = (e) => { e.stopPropagation(); dropdown.remove(); openRemindersModal(); };
     document.getElementById('signout-btn').onclick = () => {
