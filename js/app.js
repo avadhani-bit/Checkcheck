@@ -425,6 +425,26 @@ function renderWork() {
     };
   });
 
+  // Undo complete (board view)
+  document.querySelectorAll('[data-uncheck-id]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      DB.update('tasks', el.dataset.uncheckId, { done: false, completedAt: null });
+      render();
+    };
+  });
+
+  // Toggle completed list visibility
+  document.querySelectorAll('[data-done-toggle]').forEach(el => {
+    el.onclick = () => {
+      const list = document.getElementById('done-list-' + el.dataset.doneToggle);
+      if (!list) return;
+      const open = list.style.display !== 'none';
+      list.style.display = open ? 'none' : 'block';
+      el.querySelector('.project-done-chevron').style.transform = open ? '' : 'rotate(180deg)';
+    };
+  });
+
   // Task delete
   document.querySelectorAll('[data-delete-task]').forEach(el => {
     el.onclick = e => {
@@ -636,9 +656,26 @@ function expandedProjectCard(p, allTasks) {
       <div class="task-list">
         ${active.length === 0
           ? `<div class="empty-state" style="padding:18px 20px;font-size:.85rem">🎉 All tasks done!</div>`
-          : active.map(t => workTaskRow(t)).join('')}
+          : (() => {
+            const order = { high: 0, medium: 1, low: 2 };
+            return [...active].sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
+          })()}
       </div>
 
+      ${completed.length > 0 ? `
+        <div class="project-done-toggle" data-done-toggle="${p.id}">
+          <span class="project-done-toggle-label">✓ ${completed.length} completed</span>
+          <svg class="project-done-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <div class="project-done-list" id="done-list-${p.id}" style="display:none">
+          ${completed.map(t => `
+            <div class="task-row done compact">
+              <div class="task-check checked" data-uncheck-id="${t.id}" title="Mark incomplete" style="cursor:pointer"></div>
+              <div class="task-name done-name">${escHtml(t.title)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
       <div class="project-expanded-footer">
         <div class="inline-add" style="flex:1;padding:0;border:none;">
           <input class="inline-add-input" data-quick-add="${p.id}" placeholder="Quick add…" />
@@ -666,6 +703,7 @@ function workTaskRow(t) {
       <div class="task-check" data-check-id="${t.id}"></div>
       <div class="task-body" data-edit-task="${t.id}" style="cursor:pointer">
         <div style="display:flex;align-items:center;gap:6px">
+          ${priorityDot(t.priority)}
           <div class="task-name">${escHtml(t.title)}</div>
           ${subProgress}
         </div>
@@ -754,7 +792,10 @@ function renderProjectCompleted() {
       <div class="task-list" id="active-list">
         ${active.length === 0
           ? '<div class="empty-state" style="padding:24px 20px"><p>🎉 All tasks done!</p></div>'
-          : active.map(t => workTaskRow(t)).join('')}
+          : (() => {
+            const order = { high: 0, medium: 1, low: 2 };
+            return [...active].sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
+          })()}
       </div>
       <div class="inline-add">
         <input class="inline-add-input" id="quick-add-input" placeholder="Quick add task…" />
@@ -1004,6 +1045,18 @@ function nextRecurDate(fromDate, recurrence) {
 
 const RECUR_LABELS = { daily: '↻ daily', weekly: '↻ weekly', monthly: '↻ monthly' };
 
+const PRIORITIES = [
+  { key: 'high',   label: '↑ High',   color: '#EF4444', bg: '#FEE2E2' },
+  { key: 'medium', label: '→ Medium', color: '#F59E0B', bg: '#FEF3C7' },
+  { key: 'low',    label: '↓ Low',    color: '#6366F1', bg: '#EEF2FF' },
+];
+function priorityDot(priority) {
+  const p = PRIORITIES.find(x => x.key === priority);
+  if (!p) return '';
+  return `<span class="priority-dot" style="background:${p.color}" title="${p.label}"></span>`;
+}
+
+
 function todoRow(t) {
   const due = !t.done ? fmt.dueLabel(t.dueDate) : null;
   const subs = t.subtasks || [];
@@ -1198,18 +1251,24 @@ function renderChoresPanel() {
 }
 
 function choreStatus(c) {
-  if (!c.lastDone) return { key: 'never', text: 'Never done — tap to mark done', cls: 'never' };
+  if (!c.lastDone) return { key: 'never', text: 'Never done', sub: 'Tap to mark done', cls: 'never' };
   const daysSince = (Date.now() - c.lastDone) / 86400000;
-  const daysOver  = daysSince - c.intervalDays;
+  const daysLeft  = c.intervalDays - daysSince;
+  const daysOver  = -daysLeft;
   const pct       = daysSince / c.intervalDays;
   const rel       = fmt.relativeDay(c.lastDone);
-  if (daysOver >= 5) return { key: 'overdue', cls: 'overdue', text: `${Math.round(daysOver)} days overdue — last done ${rel}` };
+  if (daysOver >= 5) return { key: 'overdue', cls: 'overdue', text: `${Math.round(daysOver)}d overdue`, sub: `Last done ${rel}` };
   if (daysOver >= 1) {
     const d = Math.round(daysOver);
-    return { key: 'late', cls: 'late', text: `${d} day${d !== 1 ? 's' : ''} overdue — last done ${rel}` };
+    return { key: 'late', cls: 'late', text: `${d} day${d !== 1 ? 's' : ''} overdue`, sub: `Last done ${rel}` };
   }
-  if (pct >= 0.75) return { key: 'soon', cls: 'soon', text: `Due soon — last done ${rel}` };
-  return { key: 'ok', cls: 'ok', text: `Last done ${rel}` };
+  if (daysLeft < 1) return { key: 'late', cls: 'late', text: 'Due today', sub: `Last done ${rel}` };
+  if (pct >= 0.75) {
+    const d = Math.ceil(daysLeft);
+    return { key: 'soon', cls: 'soon', text: `Due in ${d} day${d !== 1 ? 's' : ''}`, sub: `Last done ${rel}` };
+  }
+  const d = Math.ceil(daysLeft);
+  return { key: 'ok', cls: 'ok', text: `Due in ${d} day${d !== 1 ? 's' : ''}`, sub: `Last done ${rel}` };
 }
 
 function choreListRow(c) {
@@ -1227,6 +1286,7 @@ function choreListRow(c) {
         <div class="chore-body">
           <div class="chore-name">${escHtml(c.title)}</div>
           <div class="chore-status ${status.cls}">${status.text}</div>
+          ${status.sub ? `<div class="chore-sub">${status.sub}</div>` : ''}
         </div>
         <div class="chore-actions">
           ${timerBtn}
@@ -2591,6 +2651,18 @@ function openTaskModal(project, existing) {
       <textarea class="form-input" id="task-notes" rows="3" placeholder="Any details, links, context…" style="resize:vertical;min-height:72px">${escHtml(existing?.notes || '')}</textarea>
     </div>
     <div class="form-group">
+      <label class="form-label">Priority</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${['', 'high', 'medium', 'low'].map(k => {
+          const p = PRIORITIES.find(x => x.key === k);
+          const cur = existing?.priority || '';
+          const active = cur === k;
+          if (!k) return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="" ${active ? 'checked' : ''} style="accent-color:var(--accent)" /> None</label>`;
+          return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="${k}" ${active ? 'checked' : ''} style="accent-color:${p.color}" /><span style="color:${p.color};font-weight:600">${p.label}</span></label>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="form-group">
       <label class="form-label">Tag</label>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;font-weight:400;">
         <input type="checkbox" id="task-followup" ${existing?.tag === 'follow-up' ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer" />
@@ -2652,9 +2724,10 @@ function openTaskModal(project, existing) {
     const notes   = document.getElementById('task-notes').value.trim() || null;
     const tag     = document.getElementById('task-followup').checked ? 'follow-up' : null;
     const subtasks = _modalSubtasks;
+    const priority = (document.querySelector('input[name="task-priority"]:checked') || {}).value || null;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag, subtasks });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, subtasks, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag, subtasks, priority: priority || null });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, subtasks, priority: priority || null, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
@@ -3043,32 +3116,4 @@ function init() {
     if (!user) {
       document.getElementById('auth-gate').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
-      return;
-    }
-    // Signed in — show app, update avatar
-    document.getElementById('auth-gate').style.display = 'none';
-    document.getElementById('app').style.display = '';
-    const avatar  = document.getElementById('user-avatar');
-    const userBtn = document.getElementById('user-btn');
-    if (avatar) {
-      if (user.photoURL) {
-        avatar.innerHTML = '<img src="' + user.photoURL + '" style="width:26px;height:26px;border-radius:50%;object-fit:cover;display:block" referrerpolicy="no-referrer">';
-      } else {
-        avatar.textContent = (user.email || 'U')[0].toUpperCase();
-      }
-    }
-    if (userBtn) userBtn.style.display = '';
-
-    // Pull latest data from Firestore before rendering
-    await fsPull();
-
-    if (!_appInitDone) {
-      _appInitDone = true;
-      _appInit();
-    } else {
-      render();
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', init);
+  
