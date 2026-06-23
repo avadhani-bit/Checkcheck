@@ -425,7 +425,7 @@ function renderWork() {
     };
   });
 
-  // Undo complete (board view)
+  // Undo complete (board)
   document.querySelectorAll('[data-uncheck-id]').forEach(el => {
     el.onclick = e => {
       e.stopPropagation();
@@ -434,7 +434,7 @@ function renderWork() {
     };
   });
 
-  // Toggle completed list visibility
+  // Toggle completed list
   document.querySelectorAll('[data-done-toggle]').forEach(el => {
     el.onclick = () => {
       const list = document.getElementById('done-list-' + el.dataset.doneToggle);
@@ -657,8 +657,8 @@ function expandedProjectCard(p, allTasks) {
         ${active.length === 0
           ? `<div class="empty-state" style="padding:18px 20px;font-size:.85rem">🎉 All tasks done!</div>`
           : (() => {
-            const order = { high: 0, medium: 1, low: 2 };
-            return [...active].sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
+            const ord = { high: 0, medium: 1, low: 2 };
+            return [...active].sort((a, b) => (ord[a.priority] ?? 3) - (ord[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
           })()}
       </div>
 
@@ -793,8 +793,8 @@ function renderProjectCompleted() {
         ${active.length === 0
           ? '<div class="empty-state" style="padding:24px 20px"><p>🎉 All tasks done!</p></div>'
           : (() => {
-            const order = { high: 0, medium: 1, low: 2 };
-            return [...active].sort((a, b) => (order[a.priority] ?? 3) - (order[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
+            const ord = { high: 0, medium: 1, low: 2 };
+            return [...active].sort((a, b) => (ord[a.priority] ?? 3) - (ord[b.priority] ?? 3)).map(t => workTaskRow(t)).join('');
           })()}
       </div>
       <div class="inline-add">
@@ -1046,16 +1046,15 @@ function nextRecurDate(fromDate, recurrence) {
 const RECUR_LABELS = { daily: '↻ daily', weekly: '↻ weekly', monthly: '↻ monthly' };
 
 const PRIORITIES = [
-  { key: 'high',   label: '↑ High',   color: '#EF4444', bg: '#FEE2E2' },
-  { key: 'medium', label: '→ Medium', color: '#F59E0B', bg: '#FEF3C7' },
-  { key: 'low',    label: '↓ Low',    color: '#6366F1', bg: '#EEF2FF' },
+  { key: 'high',   label: '↑ High',   color: '#EF4444' },
+  { key: 'medium', label: '→ Medium', color: '#F59E0B' },
+  { key: 'low',    label: '↓ Low',    color: '#6366F1' },
 ];
 function priorityDot(priority) {
   const p = PRIORITIES.find(x => x.key === priority);
   if (!p) return '';
-  return `<span class="priority-dot" style="background:${p.color}" title="${p.label}"></span>`;
+  return '<span class="priority-dot" style="background:' + p.color + '" title="' + p.label + '"></span>';
 }
-
 
 function todoRow(t) {
   const due = !t.done ? fmt.dueLabel(t.dueDate) : null;
@@ -2652,13 +2651,12 @@ function openTaskModal(project, existing) {
     </div>
     <div class="form-group">
       <label class="form-label">Priority</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${['', 'high', 'medium', 'low'].map(k => {
-          const p = PRIORITIES.find(x => x.key === k);
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${[{key:'',label:'None'}, ...PRIORITIES].map(p => {
           const cur = existing?.priority || '';
-          const active = cur === k;
-          if (!k) return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="" ${active ? 'checked' : ''} style="accent-color:var(--accent)" /> None</label>`;
-          return `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="${k}" ${active ? 'checked' : ''} style="accent-color:${p.color}" /><span style="color:${p.color};font-weight:600">${p.label}</span></label>`;
+          const checked = cur === p.key ? 'checked' : '';
+          const dot = p.color ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:3px"></span>' : '';
+          return '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="' + p.key + '" ' + checked + ' style="accent-color:var(--accent)" />' + dot + p.label + '</label>';
         }).join('')}
       </div>
     </div>
@@ -3116,4 +3114,32 @@ function init() {
     if (!user) {
       document.getElementById('auth-gate').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
-  
+      return;
+    }
+    // Signed in — show app, update avatar
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app').style.display = '';
+    const avatar  = document.getElementById('user-avatar');
+    const userBtn = document.getElementById('user-btn');
+    if (avatar) {
+      if (user.photoURL) {
+        avatar.innerHTML = '<img src="' + user.photoURL + '" style="width:26px;height:26px;border-radius:50%;object-fit:cover;display:block" referrerpolicy="no-referrer">';
+      } else {
+        avatar.textContent = (user.email || 'U')[0].toUpperCase();
+      }
+    }
+    if (userBtn) userBtn.style.display = '';
+
+    // Pull latest data from Firestore before rendering
+    await fsPull();
+
+    if (!_appInitDone) {
+      _appInitDone = true;
+      _appInit();
+    } else {
+      render();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
