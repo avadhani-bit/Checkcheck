@@ -1172,8 +1172,8 @@ function renderChoresPanel() {
 
   const withStatus = chores.map(c => ({ ...c, _status: choreStatus(c) }));
   withStatus.sort((a, b) => {
-    const order = { overdue: 0, soon: 1, ok: 2, never: 3 };
-    return (order[a._status.key] ?? 9) - (order[b._status.key] ?? 9);
+    const dl = x => x.lastDone ? x.intervalDays - (Date.now() - x.lastDone) / 86400000 : Infinity;
+    return dl(a) - dl(b);
   });
 
   panel.innerHTML = `
@@ -2476,7 +2476,7 @@ function renderReports() {
           <div class="task-list">
             ${tasks.map(t => `
               <div class="task-row done">
-                <div class="task-check checked" style="pointer-events:none"></div>
+                <div class="task-check checked" data-uncheck-report="${t.id}" title="Mark incomplete" style="cursor:pointer"></div>
                 <div class="task-body">
                   <div class="task-name">${escHtml(t.title)}</div>
                   ${t.completedAt ? `<div class="completed-task-date">${fmt.date(t.completedAt)}</div>` : ''}
@@ -2554,6 +2554,13 @@ function renderReports() {
     else state.reportMonth++;
     renderReports();
   };
+
+  document.querySelectorAll('[data-uncheck-report]').forEach(el => {
+    el.onclick = () => {
+      DB.update('tasks', el.dataset.uncheckReport, { done: false, completedAt: null });
+      renderReports();
+    };
+  });
 }
 
 // ─── MODALS ───────────────────────────────────────────────────────
@@ -2654,9 +2661,9 @@ function openTaskModal(project, existing) {
       <div style="display:flex;gap:12px;flex-wrap:wrap">
         ${[{key:'',label:'None'}, ...PRIORITIES].map(p => {
           const cur = existing?.priority || '';
-          const checked = cur === p.key ? 'checked' : '';
+          const chk = cur === p.key ? 'checked' : '';
           const dot = p.color ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + p.color + ';margin-right:3px"></span>' : '';
-          return '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="' + p.key + '" ' + checked + ' style="accent-color:var(--accent)" />' + dot + p.label + '</label>';
+          return '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:.85rem"><input type="radio" name="task-priority" value="' + p.key + '" ' + chk + ' style="accent-color:var(--accent)" />' + dot + p.label + '</label>';
         }).join('')}
       </div>
     </div>
