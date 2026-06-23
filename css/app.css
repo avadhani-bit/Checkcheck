@@ -1651,6 +1651,50 @@ body.dark .task-tag.tag-follow-up {
   max-width: 260px;
 }
 
+/* ─── SUBTASKS ─── */
+.subtask-count {
+  display: inline-flex;
+  align-items: center;
+  font-size: .7rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-light, #EEF2FF);
+  border-radius: 10px;
+  padding: 1px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+}
+.subtask-count:hover { opacity: .8; }
+
+.subtask-list {
+  margin-top: 6px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 4px;
+}
+.subtask-row {
+  padding: 3px 0;
+}
+.subtask-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: .82rem;
+  color: var(--text-1);
+}
+.subtask-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.subtask-done {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
 /* ─── RECURRENCE TAG ─── */
 .task-tag.tag-recur {
   background: #F0FDF4;

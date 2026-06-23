@@ -442,6 +442,29 @@ function renderWork() {
     };
   });
 
+  // Subtask toggle (show/hide list)
+  document.querySelectorAll('[data-subtask-toggle]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      const list = document.getElementById('stlist-' + el.dataset.subtaskToggle);
+      if (list) list.style.display = list.style.display === 'none' ? 'block' : 'none';
+    };
+  });
+
+  // Subtask checkbox (work tasks)
+  document.querySelectorAll('.subtask-cb').forEach(cb => {
+    cb.onclick = e => e.stopPropagation();
+    cb.onchange = () => {
+      const task = DB.get('tasks').find(t => t.id === cb.dataset.taskId);
+      if (!task) return;
+      const subs = (task.subtasks || []).map(s => s.id === cb.dataset.subId ? { ...s, done: cb.checked } : s);
+      DB.update('tasks', task.id, { subtasks: subs });
+      // update label style without full re-render
+      const span = cb.nextElementSibling;
+      if (span) span.className = cb.checked ? 'subtask-done' : '';
+    };
+  });
+
   // Open completed view (project name click or "Completed (N)" button)
   document.querySelectorAll('[data-open-project]').forEach(el => {
     el.onclick = e => {
@@ -628,16 +651,30 @@ function expandedProjectCard(p, allTasks) {
 
 function workTaskRow(t) {
   const due = fmt.dueLabel(t.dueDate);
+  const subs = t.subtasks || [];
+  const subDone = subs.filter(s => s.done).length;
+  const subProgress = subs.length
+    ? `<span class="subtask-count" data-subtask-toggle="${t.id}" title="Show subtasks">${subDone}/${subs.length}</span>`
+    : '';
+  const subList = subs.length
+    ? `<div class="subtask-list" id="stlist-${t.id}" style="display:none">` +
+      subs.map(s => `<div class="subtask-row"><label class="subtask-label"><input type="checkbox" class="subtask-cb" data-task-id="${t.id}" data-sub-id="${s.id}" ${s.done ? 'checked' : ''} /><span class="${s.done ? 'subtask-done' : ''}">${escHtml(s.title)}</span></label></div>`).join('') +
+      '</div>'
+    : '';
   return `
     <div class="task-row" draggable="true" data-task-id="${t.id}">
       <div class="task-check" data-check-id="${t.id}"></div>
       <div class="task-body" data-edit-task="${t.id}" style="cursor:pointer">
-        <div class="task-name">${escHtml(t.title)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="task-name">${escHtml(t.title)}</div>
+          ${subProgress}
+        </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:${(due || t.tag) ? '2px' : '0'}">
           ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
           ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
         </div>
         ${t.notes ? `<div class="task-notes-preview">${escHtml(t.notes.slice(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : ''}
+        ${subList}
       </div>
       <div class="task-actions">
         <button class="task-action-btn" data-edit-task="${t.id}" title="Edit">
@@ -932,6 +969,28 @@ function renderTodoPanel() {
       if (t) openTodoModal(t);
     };
   });
+
+  // Todo subtask toggle (show/hide list)
+  document.querySelectorAll('[data-todo-subtask-toggle]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      const list = document.getElementById('stlist-' + el.dataset.todoSubtaskToggle);
+      if (list) list.style.display = list.style.display === 'none' ? 'block' : 'none';
+    };
+  });
+
+  // Todo subtask checkboxes
+  document.querySelectorAll('.subtask-cb-todo').forEach(cb => {
+    cb.onclick = e => e.stopPropagation();
+    cb.onchange = () => {
+      const todo = DB.get('todos').find(t => t.id === cb.dataset.todoId);
+      if (!todo) return;
+      const subs = (todo.subtasks || []).map(s => s.id === cb.dataset.subId ? { ...s, done: cb.checked } : s);
+      DB.update('todos', todo.id, { subtasks: subs });
+      const span = cb.nextElementSibling;
+      if (span) span.className = cb.checked ? 'subtask-done' : '';
+    };
+  });
 }
 
 function nextRecurDate(fromDate, recurrence) {
@@ -947,12 +1006,26 @@ const RECUR_LABELS = { daily: '↻ daily', weekly: '↻ weekly', monthly: '↻ m
 
 function todoRow(t) {
   const due = !t.done ? fmt.dueLabel(t.dueDate) : null;
+  const subs = t.subtasks || [];
+  const subDone = subs.filter(s => s.done).length;
+  const subProgress = subs.length
+    ? `<span class="subtask-count" data-todo-subtask-toggle="${t.id}" title="Show subtasks">${subDone}/${subs.length}</span>`
+    : '';
+  const subList = subs.length
+    ? `<div class="subtask-list" id="stlist-${t.id}" style="display:none">` +
+      subs.map(s => `<div class="subtask-row"><label class="subtask-label"><input type="checkbox" class="subtask-cb-todo" data-todo-id="${t.id}" data-sub-id="${s.id}" ${s.done ? 'checked' : ''} /><span class="${s.done ? 'subtask-done' : ''}">${escHtml(s.title)}</span></label></div>`).join('') +
+      '</div>'
+    : '';
   return `
     <div class="task-row ${t.done ? 'done' : ''}">
       <div class="task-check ${t.done ? 'checked' : ''}" data-todo-check="${t.id}"></div>
       <div class="task-body" data-todo-edit="${t.id}" style="cursor:pointer">
-        <div class="task-name">${escHtml(t.title)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="task-name">${escHtml(t.title)}</div>
+          ${subProgress}
+        </div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+        ${subList}
       </div>
       ${t.recurrence && !t.done ? `<span class="task-tag tag-recur">${RECUR_LABELS[t.recurrence] || ''}</span>` : ''}
       ${t.done && t.completedAt
@@ -2524,11 +2597,53 @@ function openTaskModal(project, existing) {
         <span>↩ Mark as follow-up</span>
       </label>
     </div>
+    <div class="form-group">
+      <label class="form-label">Subtasks</label>
+      <div id="subtask-list-modal"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input class="form-input" id="subtask-input" placeholder="Add a subtask…" style="flex:1;font-size:.85rem;padding:7px 10px" />
+        <button type="button" id="subtask-add-btn" class="btn-secondary" style="padding:7px 12px;font-size:.85rem">Add</button>
+      </div>
+    </div>
     <div class="form-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-save">${isEdit ? 'Save changes' : 'Add task'}</button>
     </div>
   `);
+
+  // Subtask state for modal
+  let _modalSubtasks = (existing?.subtasks || []).map(s => ({ ...s }));
+
+  function renderModalSubtasks() {
+    const el = document.getElementById('subtask-list-modal');
+    if (!el) return;
+    el.innerHTML = _modalSubtasks.map((s, i) =>
+      `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border-light)">` +
+      `<input type="checkbox" ${s.done ? 'checked' : ''} data-modal-sub="${i}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />` +
+      `<span style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${escHtml(s.title)}</span>` +
+      `<button type="button" data-modal-sub-del="${i}" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px 4px;font-size:.9rem;line-height:1" title="Remove">✕</button>` +
+      `</div>`
+    ).join('');
+    el.querySelectorAll('[data-modal-sub]').forEach(cb => {
+      cb.onchange = () => { _modalSubtasks[+cb.dataset.modalSub].done = cb.checked; renderModalSubtasks(); };
+    });
+    el.querySelectorAll('[data-modal-sub-del]').forEach(btn => {
+      btn.onclick = () => { _modalSubtasks.splice(+btn.dataset.modalSubDel, 1); renderModalSubtasks(); };
+    });
+  }
+  renderModalSubtasks();
+
+  function addModalSubtask() {
+    const inp = document.getElementById('subtask-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    _modalSubtasks.push({ id: uid(), title: val, done: false });
+    inp.value = '';
+    renderModalSubtasks();
+    inp.focus();
+  }
+  document.getElementById('subtask-add-btn').onclick = addModalSubtask;
+  document.getElementById('subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addModalSubtask(); } });
 
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save').onclick = () => {
@@ -2536,9 +2651,10 @@ function openTaskModal(project, existing) {
     const dueDate = document.getElementById('task-due').value || null;
     const notes   = document.getElementById('task-notes').value.trim() || null;
     const tag     = document.getElementById('task-followup').checked ? 'follow-up' : null;
+    const subtasks = _modalSubtasks;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag, subtasks });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, subtasks, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
@@ -2578,15 +2694,63 @@ function openTodoModal(existing) {
     </div>
   `);
 
+  // Subtasks in todo modal
+  let _todoModalSubtasks = (existing?.subtasks || []).map(s => ({ ...s }));
+
+  // inject subtask UI after reminder field
+  const reminderGroup = document.getElementById('todo-reminder').closest('.form-group');
+  const subGroup = document.createElement('div');
+  subGroup.className = 'form-group';
+  subGroup.innerHTML =
+    '<label class="form-label">Subtasks</label>' +
+    '<div id="todo-subtask-list-modal"></div>' +
+    '<div style="display:flex;gap:6px;margin-top:6px">' +
+    '<input class="form-input" id="todo-subtask-input" placeholder="Add a subtask…" style="flex:1;font-size:.85rem;padding:7px 10px" />' +
+    '<button type="button" id="todo-subtask-add-btn" class="btn-secondary" style="padding:7px 12px;font-size:.85rem">Add</button>' +
+    '</div>';
+  reminderGroup.after(subGroup);
+
+  function renderTodoModalSubtasks() {
+    const el = document.getElementById('todo-subtask-list-modal');
+    if (!el) return;
+    el.innerHTML = _todoModalSubtasks.map((s, i) =>
+      `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border-light)">` +
+      `<input type="checkbox" ${s.done ? 'checked' : ''} data-todo-modal-sub="${i}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />` +
+      `<span style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${escHtml(s.title)}</span>` +
+      `<button type="button" data-todo-modal-sub-del="${i}" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px 4px;font-size:.9rem;line-height:1" title="Remove">✕</button>` +
+      `</div>`
+    ).join('');
+    el.querySelectorAll('[data-todo-modal-sub]').forEach(cb => {
+      cb.onchange = () => { _todoModalSubtasks[+cb.dataset.todoModalSub].done = cb.checked; renderTodoModalSubtasks(); };
+    });
+    el.querySelectorAll('[data-todo-modal-sub-del]').forEach(btn => {
+      btn.onclick = () => { _todoModalSubtasks.splice(+btn.dataset.todoModalSubDel, 1); renderTodoModalSubtasks(); };
+    });
+  }
+  renderTodoModalSubtasks();
+
+  function addTodoModalSubtask() {
+    const inp = document.getElementById('todo-subtask-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    _todoModalSubtasks.push({ id: uid(), title: val, done: false });
+    inp.value = '';
+    renderTodoModalSubtasks();
+    inp.focus();
+  }
+  document.getElementById('todo-subtask-add-btn').onclick = addTodoModalSubtask;
+  document.getElementById('todo-subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addTodoModalSubtask(); } });
+
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save').onclick = () => {
     const title        = document.getElementById('todo-name').value.trim();
     const dueDate      = document.getElementById('todo-due').value || null;
     const recurrence   = document.getElementById('todo-recurrence').value;
     const reminderTime = document.getElementById('todo-reminder').value || null;
+    const subtasks     = _todoModalSubtasks;
     if (!title) { document.getElementById('todo-name').focus(); return; }
-    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime });
-    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks });
+    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks, completedAt: null, createdAt: Date.now() });
     closeModal();
     renderTodoPanel();
   };
