@@ -2691,6 +2691,12 @@ function openTaskModal(project, existing) {
   // Subtask state for modal
   let _modalSubtasks = (existing?.subtasks || []).map(s => ({ ...s }));
 
+  // Autosave subtasks immediately when editing an existing task, so adding/
+  // checking/removing a subtask doesn't require also clicking "Save changes".
+  function autosaveSubtasks() {
+    if (isEdit) { DB.update('tasks', existing.id, { subtasks: _modalSubtasks }); render(); }
+  }
+
   function renderModalSubtasks() {
     const el = document.getElementById('subtask-list-modal');
     if (!el) return;
@@ -2702,10 +2708,10 @@ function openTaskModal(project, existing) {
       `</div>`
     ).join('');
     el.querySelectorAll('[data-modal-sub]').forEach(cb => {
-      cb.onchange = () => { _modalSubtasks[+cb.dataset.modalSub].done = cb.checked; renderModalSubtasks(); };
+      cb.onchange = () => { _modalSubtasks[+cb.dataset.modalSub].done = cb.checked; renderModalSubtasks(); autosaveSubtasks(); };
     });
     el.querySelectorAll('[data-modal-sub-del]').forEach(btn => {
-      btn.onclick = () => { _modalSubtasks.splice(+btn.dataset.modalSubDel, 1); renderModalSubtasks(); };
+      btn.onclick = () => { _modalSubtasks.splice(+btn.dataset.modalSubDel, 1); renderModalSubtasks(); autosaveSubtasks(); };
     });
   }
   renderModalSubtasks();
@@ -2717,6 +2723,7 @@ function openTaskModal(project, existing) {
     _modalSubtasks.push({ id: uid(), title: val, done: false });
     inp.value = '';
     renderModalSubtasks();
+    autosaveSubtasks();
     inp.focus();
   }
   document.getElementById('subtask-add-btn').onclick = addModalSubtask;
@@ -2788,6 +2795,12 @@ function openTodoModal(existing) {
     '</div>';
   reminderGroup.after(subGroup);
 
+  // Autosave subtasks immediately when editing an existing to-do, so adding/
+  // checking/removing a subtask doesn't require also clicking "Save".
+  function autosaveTodoSubtasks() {
+    if (isEdit) { DB.update('todos', existing.id, { subtasks: _todoModalSubtasks }); renderTodoPanel(); }
+  }
+
   function renderTodoModalSubtasks() {
     const el = document.getElementById('todo-subtask-list-modal');
     if (!el) return;
@@ -2799,10 +2812,10 @@ function openTodoModal(existing) {
       `</div>`
     ).join('');
     el.querySelectorAll('[data-todo-modal-sub]').forEach(cb => {
-      cb.onchange = () => { _todoModalSubtasks[+cb.dataset.todoModalSub].done = cb.checked; renderTodoModalSubtasks(); };
+      cb.onchange = () => { _todoModalSubtasks[+cb.dataset.todoModalSub].done = cb.checked; renderTodoModalSubtasks(); autosaveTodoSubtasks(); };
     });
     el.querySelectorAll('[data-todo-modal-sub-del]').forEach(btn => {
-      btn.onclick = () => { _todoModalSubtasks.splice(+btn.dataset.todoModalSubDel, 1); renderTodoModalSubtasks(); };
+      btn.onclick = () => { _todoModalSubtasks.splice(+btn.dataset.todoModalSubDel, 1); renderTodoModalSubtasks(); autosaveTodoSubtasks(); };
     });
   }
   renderTodoModalSubtasks();
@@ -2814,6 +2827,7 @@ function openTodoModal(existing) {
     _todoModalSubtasks.push({ id: uid(), title: val, done: false });
     inp.value = '';
     renderTodoModalSubtasks();
+    autosaveTodoSubtasks();
     inp.focus();
   }
   document.getElementById('todo-subtask-add-btn').onclick = addTodoModalSubtask;
