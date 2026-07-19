@@ -20,12 +20,10 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 11px 0;
+  padding: 11px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
-  transition: background 0.1s;
   border-radius: 8px;
-  padding-left: 6px;
-  padding-right: 6px;
+  transition: background 0.1s;
 }
 
 .task:last-child {
@@ -80,29 +78,38 @@
   color: var(--muted);
 }
 
-/* ── Tag chips ── */
-.tag {
+/* ── Priority badges ── */
+.priority {
   font-size: 11px;
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 20px;
   letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 
-.tag-task     { background: rgba(139,92,246,0.15); color: #A78BFA; }
-.tag-followup { background: rgba(245,158,11,0.15); color: #FCD34D; }
-.tag-review   { background: rgba(16,185,129,0.15); color: #6EE7B7; }
-.tag-meeting  { background: rgba(59,130,246,0.15); color: #93C5FD; }
-.tag-urgent   { background: rgba(239,68,68,0.15);  color: #FCA5A5; }
+.priority-urgent { background: rgba(239,68,68,0.15);   color: #FCA5A5; }
+.priority-high   { background: rgba(245,158,11,0.15);  color: #FCD34D; }
+.priority-medium { background: rgba(139,92,246,0.15);  color: #A78BFA; }
+.priority-low    { background: rgba(156,163,175,0.12); color: #9CA3AF; }
 
-/* ── Project cards ── */
+/* ── Project grid (3 columns desktop) ── */
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap);
+}
+
 .project-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px 28px;
+  padding: 24px 26px;
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .project-card:hover {
@@ -111,20 +118,18 @@
 }
 
 .project-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 6px;
 }
 
 .project-meta {
   font-size: 13px;
   color: var(--muted);
-  margin-bottom: 18px;
 }
 
 .progress-bar {
   background: rgba(255,255,255,0.07);
-  height: 6px;
+  height: 5px;
   border-radius: 20px;
   overflow: hidden;
 }
@@ -139,7 +144,32 @@
 .progress-text {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 8px;
+}
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--gap);
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+
+.stat-value {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
 }
 
 /* ── Chore rows ── */
@@ -180,7 +210,7 @@
   font-size: 14px;
 }
 
-/* ── Section divider ── */
+/* ── Section label ── */
 .section-label {
   font-size: 12px;
   font-weight: 600;
@@ -189,4 +219,17 @@
   letter-spacing: 0.08em;
   padding: 0 6px;
   margin-bottom: 4px;
+}
+
+/* ── Responsive: collapse to 1 column on tablet/mobile ── */
+@media (max-width: 1024px) {
+  .project-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
 }
