@@ -5,5 +5,7 @@ export const state = {
   tasks: [],
   shopping: [],
   todos: [],
-  chores: []
+  chores: [],
+  habits: [],
+  uid: null
 };
