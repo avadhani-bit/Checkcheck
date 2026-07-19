@@ -1,21 +1,15 @@
-// ── Firebase is loaded via CDN scripts in index.html ──
-// ── so we use the compat API (firebase.xxx) not ES module imports ──
-
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: "AIzaSyBpUUVpBIsuKAx1Tw-cnN4ItXho7IqbMMQ",
   authDomain: "checkcheck-3d35f.firebaseapp.com",
   projectId: "checkcheck-3d35f",
   storageBucket: "checkcheck-3d35f.firebasestorage.app",
   messagingSenderId: "744363444071",
   appId: "1:744363444071:web:5e72bf03a2771ae83c91c2"
-};
-
-firebase.initializeApp(firebaseConfig);
+});
 
 export const auth = firebase.auth();
 export const db   = firebase.firestore();
 
-// ── Load all collections for a signed-in user ──
 export async function loadUserData(uid) {
   const base = db.collection("users").doc(uid);
 
