@@ -26,23 +26,24 @@ export function openProject(id) {
 }
 
 export function toggleTask(id, collection = "task") {
-  let list;
-  if (collection === "todo")     list = state.todos;
-  else if (collection === "shopping") list = state.shopping;
-  else                           list = state.tasks;
-
-  const item = list.find(t => t.id === id);
-  if (item) item.done = !item.done;
+  if (collection === "shopping") {
+    const item = state.shopping.find(t => t.id === id);
+    if (item) item.checked = !item.checked;
+  } else if (collection === "todo") {
+    const item = state.todos.find(t => t.id === id);
+    if (item) item.done = !item.done;
+  } else {
+    const item = state.tasks.find(t => t.id === id);
+    if (item) item.done = !item.done;
+  }
 
   renderPage();
 }
 
 export function showModal(type) {
-  // placeholder — will wire to Firebase later
-  alert(`Add ${type} — coming soon once Firebase is connected.`);
+  alert(`Add ${type} — coming soon.`);
 }
 
-// Expose to window so inline onclick handlers in render.js can reach these
 window.__toggleTask  = toggleTask;
 window.__openProject = openProject;
 window.__backToWork  = () => goPage("work");
