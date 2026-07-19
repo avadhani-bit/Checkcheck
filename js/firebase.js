@@ -13,19 +13,30 @@ export const db   = firebase.firestore();
 export async function loadUserData(uid) {
   const base = db.collection("users").doc(uid);
 
-  const [projects, tasks, todos, shopping, chores] = await Promise.all([
+  const [projects, tasks, todos, shopping, chores, habitsSnap] = await Promise.all([
     base.collection("projects").get(),
     base.collection("tasks").get(),
     base.collection("todos").get(),
     base.collection("shopping").get(),
-    base.collection("chores").get()
+    base.collection("chores").get(),
+    base.collection("habits").get()
   ]);
+
+  // Habits are stored as an array of maps inside a single doc's "items" field
+  let habits = [];
+  habitsSnap.docs.forEach(d => {
+    const data = d.data();
+    if (Array.isArray(data.items)) {
+      habits = habits.concat(data.items);
+    }
+  });
 
   return {
     projects: projects.docs.map(d => ({ id: d.id, ...d.data() })),
     tasks:    tasks.docs.map(d => ({ id: d.id, ...d.data() })),
     todos:    todos.docs.map(d => ({ id: d.id, ...d.data() })),
     shopping: shopping.docs.map(d => ({ id: d.id, ...d.data() })),
-    chores:   chores.docs.map(d => ({ id: d.id, ...d.data() }))
+    chores:   chores.docs.map(d => ({ id: d.id, ...d.data() })),
+    habits
   };
 }
