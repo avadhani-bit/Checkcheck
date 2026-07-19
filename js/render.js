@@ -14,10 +14,9 @@ function today() {
 
 /* ── TODAY ── */
 export function renderToday() {
-  const due    = state.tasks.filter(t => !t.done);
-  const work   = due.filter(t => t.type === "work").slice(0, 5);
-  const personal = state.todos.filter(t => !t.done).slice(0, 5);
-  const chores = state.chores.slice(0, 4);
+  const workTasks    = state.tasks.filter(t => !t.done).slice(0, 6);
+  const personalTodos = state.todos.filter(t => !t.done).slice(0, 5);
+  const chores       = state.chores.slice(0, 4);
 
   return `
     <div class="topbar">
@@ -46,16 +45,16 @@ export function renderToday() {
       </div>
     </div>
 
-    ${work.length ? `
+    ${workTasks.length ? `
     <div class="card">
       <div class="card-title">Work</div>
-      ${work.map(t => taskRow(t)).join("")}
+      ${workTasks.map(t => taskRow(t)).join("")}
     </div>` : ""}
 
-    ${personal.length ? `
+    ${personalTodos.length ? `
     <div class="card">
       <div class="card-title">Personal</div>
-      ${personal.map(t => taskRow(t, "todo")).join("")}
+      ${personalTodos.map(t => taskRow(t, "todo")).join("")}
     </div>` : ""}
 
     ${chores.length ? `
@@ -74,14 +73,15 @@ export function renderWork() {
     <div class="topbar">
       <div class="topbar-left">
         <h1>Work</h1>
-        <div class="subtitle">${projects.length} projects</div>
+        <div class="subtitle">${projects.length} project${projects.length !== 1 ? "s" : ""}</div>
       </div>
       <button class="add-btn" onclick="window.__addProject()">+</button>
     </div>
 
-    ${projects.length === 0 ? `
-      <div class="card"><div class="empty">No projects yet. Hit + to add one.</div></div>
-    ` : projects.map(p => projectCard(p)).join("")}
+    ${projects.length === 0
+      ? `<div class="card"><div class="empty">No projects yet. Hit + to add one.</div></div>`
+      : `<div class="project-grid">${projects.map(p => projectCard(p)).join("")}</div>`
+    }
   `;
 }
 
@@ -96,6 +96,12 @@ export function renderProject() {
   const pct = projectTasks.length
     ? Math.round((completed.length / projectTasks.length) * 100)
     : 0;
+
+  // Sort active tasks: urgent → high → medium → low
+  const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
+  active.sort((a, b) =>
+    (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+  );
 
   return `
     <div class="topbar">
@@ -132,10 +138,6 @@ export function renderProject() {
 
 /* ── PERSONAL ── */
 export function renderPersonal() {
-  const todos    = state.todos;
-  const shopping = state.shopping;
-  const chores   = state.chores;
-
   return `
     <div class="topbar">
       <div class="topbar-left">
@@ -146,23 +148,23 @@ export function renderPersonal() {
 
     <div class="card">
       <div class="card-title">To-do</div>
-      ${todos.length === 0
+      ${state.todos.length === 0
         ? `<div class="empty">Nothing here yet.</div>`
-        : todos.map(t => taskRow(t, "todo")).join("")}
+        : state.todos.map(t => taskRow(t, "todo")).join("")}
     </div>
 
     <div class="card">
       <div class="card-title">Shopping</div>
-      ${shopping.length === 0
+      ${state.shopping.length === 0
         ? `<div class="empty">List is empty.</div>`
-        : shopping.map(t => taskRow(t, "shopping")).join("")}
+        : state.shopping.map(t => taskRow(t, "shopping")).join("")}
     </div>
 
     <div class="card">
       <div class="card-title">Chores</div>
-      ${chores.length === 0
+      ${state.chores.length === 0
         ? `<div class="empty">No chores tracked yet.</div>`
-        : chores.map(c => choreRow(c)).join("")}
+        : state.chores.map(c => choreRow(c)).join("")}
     </div>
   `;
 }
@@ -227,7 +229,6 @@ export function renderReports() {
 /* ── MAIN RENDER ── */
 export function renderPage() {
   const container = document.getElementById("page-container");
-
   if (state.currentPage === "today")    container.innerHTML = renderToday();
   if (state.currentPage === "work")     container.innerHTML = renderWork();
   if (state.currentPage === "project")  container.innerHTML = renderProject();
@@ -237,25 +238,32 @@ export function renderPage() {
 
 /* ── HELPERS ── */
 function taskRow(t, collection = "task") {
+  const priority = t.priority || "medium";
   return `
-    <div class="task ${t.done ? "done" : ""}" data-id="${t.id}" data-collection="${collection}">
+    <div class="task ${t.done ? "done" : ""}">
       <div class="check" onclick="window.__toggleTask('${t.id}', '${collection}')"></div>
       <div class="task-name">${t.name || t.title || t.text || ""}</div>
-      ${t.tag ? `<span class="tag tag-${t.tag}">${t.tag}</span>` : ""}
+      <span class="priority priority-${priority}">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
     </div>
   `;
 }
 
 function projectCard(p) {
-  const tasks     = state.tasks.filter(t => t.projectId === p.id);
-  const done      = tasks.filter(t => t.done).length;
-  const pct       = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const active    = tasks.filter(t => !t.done).length;
+  const tasks  = state.tasks.filter(t => t.projectId === p.id);
+  const done   = tasks.filter(t => t.done).length;
+  const pct    = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  const active = tasks.filter(t => !t.done).length;
+
+  // Count urgent tasks for a quick callout
+  const urgent = tasks.filter(t => !t.done && t.priority === "urgent").length;
 
   return `
     <div class="project-card" onclick="window.__openProject('${p.id}')">
       <div class="project-title">${p.name}</div>
-      <div class="project-meta">${active} active task${active !== 1 ? "s" : ""}</div>
+      <div class="project-meta">
+        ${active} active task${active !== 1 ? "s" : ""}
+        ${urgent ? `· <span style="color:#FCA5A5">${urgent} urgent</span>` : ""}
+      </div>
       <div class="progress-bar">
         <div class="progress-fill" style="width:${pct}%"></div>
       </div>
