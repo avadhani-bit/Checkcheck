@@ -8,111 +8,54 @@ function getGreeting() {
   return "Good evening";
 }
 
-function todayLabel() {
+function today() {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
-
-function freqText(freq) {
-  if (freq === 1)  return "Daily";
-  if (freq === 7)  return "Weekly";
-  if (freq === 14) return "Every 2 weeks";
-  if (freq === 30) return "Monthly";
-  return freq ? `Every ${freq} days` : "";
-}
-
-function choreColor(chore) {
-  if (!chore.freq || !chore.lastDone) return "#9CA3AF";
-  const daysAgo = Math.floor((Date.now() - new Date(chore.lastDone)) / 86400000);
-  const pct = daysAgo / chore.freq;
-  if (pct >= 1)   return "#EF4444";
-  if (pct >= 0.7) return "#F59E0B";
-  return "#10B981";
-}
-
-// Check if a habit was completed today
-function habitDoneToday(habit) {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  return (habit.history || []).some(ts => ts >= todayStart.getTime());
-}
-
-// Calculate current streak for a habit (consecutive days)
-function habitStreak(habit) {
-  const history = [...(habit.history || [])].sort((a, b) => b - a);
-  if (!history.length) return 0;
-  let streak = 0;
-  let cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  for (const ts of history) {
-    const d = new Date(ts);
-    d.setHours(0, 0, 0, 0);
-    const diff = Math.round((cursor - d) / 86400000);
-    if (diff <= 1) {
-      streak++;
-      cursor = d;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-// How many times completed this week
-function habitWeekCount(habit) {
-  const weekAgo = Date.now() - 7 * 86400000;
-  return (habit.history || []).filter(ts => ts >= weekAgo).length;
 }
 
 /* ── TODAY ── */
 export function renderToday() {
-  const workTasks     = state.tasks.filter(t => !t.done).slice(0, 6);
-  const personalTodos = state.todos.filter(t => !t.done).slice(0, 5);
-  const chores        = state.chores.slice(0, 4);
-  const habits        = state.habits.slice(0, 5);
+  const due    = state.tasks.filter(t => !t.done);
+  const work   = due.filter(t => t.type === "work").slice(0, 5);
+  const personal = state.todos.filter(t => !t.done).slice(0, 5);
+  const chores = state.chores.slice(0, 4);
 
   return `
     <div class="topbar">
       <div class="topbar-left">
         <h1>${getGreeting()}</h1>
-        <div class="subtitle">${todayLabel()}</div>
+        <div class="subtitle">${today()}</div>
       </div>
     </div>
 
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-value">${state.tasks.filter(t => !t.done).length}</div>
+        <div class="stat-value">${state.tasks.filter(t=>!t.done).length}</div>
         <div class="stat-label">Work tasks</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${state.todos.filter(t => !t.done).length}</div>
+        <div class="stat-value">${state.todos.filter(t=>!t.done).length}</div>
         <div class="stat-label">Personal todos</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${state.shopping.filter(t => !t.checked).length}</div>
+        <div class="stat-value">${state.shopping.filter(t=>!t.done).length}</div>
         <div class="stat-label">Shopping items</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${state.habits.filter(h => habitDoneToday(h)).length} / ${state.habits.length}</div>
-        <div class="stat-label">Habits today</div>
+        <div class="stat-value">${state.chores.length}</div>
+        <div class="stat-label">Chores tracked</div>
       </div>
     </div>
 
-    ${workTasks.length ? `
+    ${work.length ? `
     <div class="card">
       <div class="card-title">Work</div>
-      ${workTasks.map(t => taskRow(t)).join("")}
+      ${work.map(t => taskRow(t)).join("")}
     </div>` : ""}
 
-    ${personalTodos.length ? `
+    ${personal.length ? `
     <div class="card">
       <div class="card-title">Personal</div>
-      ${personalTodos.map(t => taskRow(t, "todo")).join("")}
-    </div>` : ""}
-
-    ${habits.length ? `
-    <div class="card">
-      <div class="card-title">Habits</div>
-      ${habits.map(h => habitRow(h)).join("")}
+      ${personal.map(t => taskRow(t, "todo")).join("")}
     </div>` : ""}
 
     ${chores.length ? `
@@ -126,19 +69,19 @@ export function renderToday() {
 /* ── WORK ── */
 export function renderWork() {
   const projects = state.projects;
+
   return `
     <div class="topbar">
       <div class="topbar-left">
         <h1>Work</h1>
-        <div class="subtitle">${projects.length} project${projects.length !== 1 ? "s" : ""}</div>
+        <div class="subtitle">${projects.length} projects</div>
       </div>
       <button class="add-btn" onclick="window.__addProject()">+</button>
     </div>
 
-    ${projects.length === 0
-      ? `<div class="card"><div class="empty">No projects yet. Hit + to add one.</div></div>`
-      : `<div class="project-grid">${projects.map(p => projectCard(p)).join("")}</div>`
-    }
+    ${projects.length === 0 ? `
+      <div class="card"><div class="empty">No projects yet. Hit + to add one.</div></div>
+    ` : projects.map(p => projectCard(p)).join("")}
   `;
 }
 
@@ -189,6 +132,10 @@ export function renderProject() {
 
 /* ── PERSONAL ── */
 export function renderPersonal() {
+  const todos    = state.todos;
+  const shopping = state.shopping;
+  const chores   = state.chores;
+
   return `
     <div class="topbar">
       <div class="topbar-left">
@@ -199,30 +146,23 @@ export function renderPersonal() {
 
     <div class="card">
       <div class="card-title">To-do</div>
-      ${state.todos.length === 0
+      ${todos.length === 0
         ? `<div class="empty">Nothing here yet.</div>`
-        : state.todos.map(t => taskRow(t, "todo")).join("")}
+        : todos.map(t => taskRow(t, "todo")).join("")}
     </div>
 
     <div class="card">
       <div class="card-title">Shopping</div>
-      ${state.shopping.length === 0
+      ${shopping.length === 0
         ? `<div class="empty">List is empty.</div>`
-        : state.shopping.map(t => shoppingRow(t)).join("")}
-    </div>
-
-    <div class="card">
-      <div class="card-title">Habits</div>
-      ${state.habits.length === 0
-        ? `<div class="empty">No habits yet.</div>`
-        : state.habits.map(h => habitRow(h)).join("")}
+        : shopping.map(t => taskRow(t, "shopping")).join("")}
     </div>
 
     <div class="card">
       <div class="card-title">Chores</div>
-      ${state.chores.length === 0
+      ${chores.length === 0
         ? `<div class="empty">No chores tracked yet.</div>`
-        : state.chores.map(c => choreRow(c)).join("")}
+        : chores.map(c => choreRow(c)).join("")}
     </div>
   `;
 }
@@ -232,7 +172,7 @@ export function renderReports() {
   const month = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const completedTasks    = state.tasks.filter(t => t.done).length;
   const completedTodos    = state.todos.filter(t => t.done).length;
-  const completedShopping = state.shopping.filter(t => t.checked).length;
+  const completedShopping = state.shopping.filter(t => t.done).length;
   const total = completedTasks + completedTodos + completedShopping;
 
   return `
@@ -280,10 +220,6 @@ export function renderReports() {
         <div class="task-name">Projects active</div>
         <div class="task-meta">${state.projects.length}</div>
       </div>
-      <div class="task">
-        <div class="task-name">Habits tracked</div>
-        <div class="task-meta">${state.habits.length}</div>
-      </div>
     </div>
   `;
 }
@@ -291,6 +227,7 @@ export function renderReports() {
 /* ── MAIN RENDER ── */
 export function renderPage() {
   const container = document.getElementById("page-container");
+
   if (state.currentPage === "today")    container.innerHTML = renderToday();
   if (state.currentPage === "work")     container.innerHTML = renderWork();
   if (state.currentPage === "project")  container.innerHTML = renderProject();
@@ -300,61 +237,21 @@ export function renderPage() {
 
 /* ── HELPERS ── */
 function taskRow(t, collection = "task") {
-  const tag = Array.isArray(t.tags) && t.tags.length ? t.tags[0] : (t.priority || null);
-  const tagHtml = tag
-    ? `<span class="priority priority-${tag}">${tag.charAt(0).toUpperCase() + tag.slice(1)}</span>`
-    : "";
   return `
-    <div class="task ${t.done ? "done" : ""}">
+    <div class="task ${t.done ? "done" : ""}" data-id="${t.id}" data-collection="${collection}">
       <div class="check" onclick="window.__toggleTask('${t.id}', '${collection}')"></div>
       <div class="task-name">${t.name || t.title || t.text || ""}</div>
-      ${tagHtml}
-    </div>
-  `;
-}
-
-function shoppingRow(t) {
-  return `
-    <div class="task ${t.checked ? "done" : ""}">
-      <div class="check" onclick="window.__toggleTask('${t.id}', 'shopping')"></div>
-      <div class="task-name">${t.name || ""}</div>
-      ${t.qty ? `<span class="task-meta">${t.qty}</span>` : ""}
-    </div>
-  `;
-}
-
-function habitRow(h) {
-  const done   = habitDoneToday(h);
-  const streak = habitStreak(h);
-  const count  = habitWeekCount(h);
-  const color  = h.color || "#8B5CF6";
-
-  return `
-    <div class="task ${done ? "done" : ""}">
-      <div class="habit-check ${done ? "habit-checked" : ""}"
-           style="background:${done ? color : "transparent"};
-                  border-color:${done ? color : "var(--border)"};
-                  width:20px;height:20px;border-radius:6px;border:2px solid;
-                  display:flex;align-items:center;justify-content:center;
-                  cursor:pointer;flex-shrink:0;transition:.15s;"
-           onclick="window.__toggleHabit('${h.id}')">
-        ${done ? `<span style="color:white;font-size:11px;font-weight:700;">✓</span>` : ""}
-      </div>
-      <div style="font-size:16px">${h.emoji || ""}</div>
-      <div class="task-name">${h.name || ""}</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-        ${streak > 0 ? `<span style="font-size:12px;color:var(--muted);">🔥 ${streak}</span>` : ""}
-        <span style="font-size:11px;color:var(--muted);">${h.targetDays || ""}</span>
-      </div>
+      ${t.tag ? `<span class="tag tag-${t.tag}">${t.tag}</span>` : ""}
     </div>
   `;
 }
 
 function projectCard(p) {
-  const tasks  = state.tasks.filter(t => t.projectId === p.id);
-  const done   = tasks.filter(t => t.done).length;
-  const pct    = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-  const active = tasks.filter(t => !t.done).length;
+  const tasks     = state.tasks.filter(t => t.projectId === p.id);
+  const done      = tasks.filter(t => t.done).length;
+  const pct       = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  const active    = tasks.filter(t => !t.done).length;
+
   return `
     <div class="project-card" onclick="window.__openProject('${p.id}')">
       <div class="project-title">${p.name}</div>
@@ -368,20 +265,12 @@ function projectCard(p) {
 }
 
 function choreRow(c) {
-  const color   = choreColor(c);
-  const freq    = freqText(c.freq);
-  const daysAgo = c.lastDone
-    ? Math.floor((Date.now() - new Date(c.lastDone)) / 86400000)
-    : null;
-  const since = daysAgo === null ? "" :
-    daysAgo === 0 ? "Done today" :
-    daysAgo === 1 ? "Done yesterday" :
-    `${daysAgo} days ago`;
+  const color = c.color || "#9CA3AF";
   return `
     <div class="chore-row">
       <div class="chore-dot" style="background:${color}"></div>
       <div class="chore-name">${c.name}</div>
-      <div class="chore-freq">${freq}${since ? " · " + since : ""}</div>
+      <div class="chore-freq">${c.frequency || ""}</div>
     </div>
   `;
 }
