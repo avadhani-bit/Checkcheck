@@ -8,11 +8,10 @@ function getGreeting() {
   return "Good evening";
 }
 
-function today() {
+function todayLabel() {
   return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
-// Convert chore freq number to readable string
 function freqText(freq) {
   if (freq === 1)  return "Daily";
   if (freq === 7)  return "Weekly";
@@ -21,14 +20,47 @@ function freqText(freq) {
   return freq ? `Every ${freq} days` : "";
 }
 
-// Chore freshness color based on how overdue it is
 function choreColor(chore) {
   if (!chore.freq || !chore.lastDone) return "#9CA3AF";
   const daysAgo = Math.floor((Date.now() - new Date(chore.lastDone)) / 86400000);
   const pct = daysAgo / chore.freq;
-  if (pct >= 1)   return "#EF4444"; // overdue — red
-  if (pct >= 0.7) return "#F59E0B"; // due soon — yellow
-  return "#10B981";                  // fresh — green
+  if (pct >= 1)   return "#EF4444";
+  if (pct >= 0.7) return "#F59E0B";
+  return "#10B981";
+}
+
+// Check if a habit was completed today
+function habitDoneToday(habit) {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  return (habit.history || []).some(ts => ts >= todayStart.getTime());
+}
+
+// Calculate current streak for a habit (consecutive days)
+function habitStreak(habit) {
+  const history = [...(habit.history || [])].sort((a, b) => b - a);
+  if (!history.length) return 0;
+  let streak = 0;
+  let cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  for (const ts of history) {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    const diff = Math.round((cursor - d) / 86400000);
+    if (diff <= 1) {
+      streak++;
+      cursor = d;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// How many times completed this week
+function habitWeekCount(habit) {
+  const weekAgo = Date.now() - 7 * 86400000;
+  return (habit.history || []).filter(ts => ts >= weekAgo).length;
 }
 
 /* ── TODAY ── */
@@ -36,12 +68,13 @@ export function renderToday() {
   const workTasks     = state.tasks.filter(t => !t.done).slice(0, 6);
   const personalTodos = state.todos.filter(t => !t.done).slice(0, 5);
   const chores        = state.chores.slice(0, 4);
+  const habits        = state.habits.slice(0, 5);
 
   return `
     <div class="topbar">
       <div class="topbar-left">
         <h1>${getGreeting()}</h1>
-        <div class="subtitle">${today()}</div>
+        <div class="subtitle">${todayLabel()}</div>
       </div>
     </div>
 
@@ -59,8 +92,8 @@ export function renderToday() {
         <div class="stat-label">Shopping items</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">${state.chores.length}</div>
-        <div class="stat-label">Chores tracked</div>
+        <div class="stat-value">${state.habits.filter(h => habitDoneToday(h)).length} / ${state.habits.length}</div>
+        <div class="stat-label">Habits today</div>
       </div>
     </div>
 
@@ -76,6 +109,12 @@ export function renderToday() {
       ${personalTodos.map(t => taskRow(t, "todo")).join("")}
     </div>` : ""}
 
+    ${habits.length ? `
+    <div class="card">
+      <div class="card-title">Habits</div>
+      ${habits.map(h => habitRow(h)).join("")}
+    </div>` : ""}
+
     ${chores.length ? `
     <div class="card">
       <div class="card-title">Chores</div>
@@ -87,7 +126,6 @@ export function renderToday() {
 /* ── WORK ── */
 export function renderWork() {
   const projects = state.projects;
-
   return `
     <div class="topbar">
       <div class="topbar-left">
@@ -174,6 +212,13 @@ export function renderPersonal() {
     </div>
 
     <div class="card">
+      <div class="card-title">Habits</div>
+      ${state.habits.length === 0
+        ? `<div class="empty">No habits yet.</div>`
+        : state.habits.map(h => habitRow(h)).join("")}
+    </div>
+
+    <div class="card">
       <div class="card-title">Chores</div>
       ${state.chores.length === 0
         ? `<div class="empty">No chores tracked yet.</div>`
@@ -235,6 +280,10 @@ export function renderReports() {
         <div class="task-name">Projects active</div>
         <div class="task-meta">${state.projects.length}</div>
       </div>
+      <div class="task">
+        <div class="task-name">Habits tracked</div>
+        <div class="task-meta">${state.habits.length}</div>
+      </div>
     </div>
   `;
 }
@@ -251,12 +300,10 @@ export function renderPage() {
 
 /* ── HELPERS ── */
 function taskRow(t, collection = "task") {
-  // Support both tags array (v1) and priority string (v2)
   const tag = Array.isArray(t.tags) && t.tags.length ? t.tags[0] : (t.priority || null);
   const tagHtml = tag
     ? `<span class="priority priority-${tag}">${tag.charAt(0).toUpperCase() + tag.slice(1)}</span>`
     : "";
-
   return `
     <div class="task ${t.done ? "done" : ""}">
       <div class="check" onclick="window.__toggleTask('${t.id}', '${collection}')"></div>
@@ -267,7 +314,6 @@ function taskRow(t, collection = "task") {
 }
 
 function shoppingRow(t) {
-  // Shopping uses "checked" not "done"
   return `
     <div class="task ${t.checked ? "done" : ""}">
       <div class="check" onclick="window.__toggleTask('${t.id}', 'shopping')"></div>
@@ -277,12 +323,38 @@ function shoppingRow(t) {
   `;
 }
 
+function habitRow(h) {
+  const done   = habitDoneToday(h);
+  const streak = habitStreak(h);
+  const count  = habitWeekCount(h);
+  const color  = h.color || "#8B5CF6";
+
+  return `
+    <div class="task ${done ? "done" : ""}">
+      <div class="habit-check ${done ? "habit-checked" : ""}"
+           style="background:${done ? color : "transparent"};
+                  border-color:${done ? color : "var(--border)"};
+                  width:20px;height:20px;border-radius:6px;border:2px solid;
+                  display:flex;align-items:center;justify-content:center;
+                  cursor:pointer;flex-shrink:0;transition:.15s;"
+           onclick="window.__toggleHabit('${h.id}')">
+        ${done ? `<span style="color:white;font-size:11px;font-weight:700;">✓</span>` : ""}
+      </div>
+      <div style="font-size:16px">${h.emoji || ""}</div>
+      <div class="task-name">${h.name || ""}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        ${streak > 0 ? `<span style="font-size:12px;color:var(--muted);">🔥 ${streak}</span>` : ""}
+        <span style="font-size:11px;color:var(--muted);">${h.targetDays || ""}</span>
+      </div>
+    </div>
+  `;
+}
+
 function projectCard(p) {
   const tasks  = state.tasks.filter(t => t.projectId === p.id);
   const done   = tasks.filter(t => t.done).length;
   const pct    = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
   const active = tasks.filter(t => !t.done).length;
-
   return `
     <div class="project-card" onclick="window.__openProject('${p.id}')">
       <div class="project-title">${p.name}</div>
@@ -296,8 +368,8 @@ function projectCard(p) {
 }
 
 function choreRow(c) {
-  const color = choreColor(c);
-  const freq  = freqText(c.freq);
+  const color   = choreColor(c);
+  const freq    = freqText(c.freq);
   const daysAgo = c.lastDone
     ? Math.floor((Date.now() - new Date(c.lastDone)) / 86400000)
     : null;
@@ -305,7 +377,6 @@ function choreRow(c) {
     daysAgo === 0 ? "Done today" :
     daysAgo === 1 ? "Done yesterday" :
     `${daysAgo} days ago`;
-
   return `
     <div class="chore-row">
       <div class="chore-dot" style="background:${color}"></div>
