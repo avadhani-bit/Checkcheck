@@ -566,6 +566,35 @@ function renderWork() {
     };
   });
 
+  // Summary week calendar — click a task to open it
+  document.querySelectorAll('[data-summary-edit]').forEach(el => {
+    el.onclick = () => {
+      const t = DB.get('tasks').find(x => x.id === el.dataset.summaryEdit);
+      if (t) openTaskModal(null, t);
+    };
+  });
+
+  // Summary week calendar — "+ Add" toggles an inline quick-add for that day
+  document.querySelectorAll('[data-swc-add-toggle]').forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.swcAddToggle;
+      const box = document.getElementById('swc-add-inline-' + key);
+      const input = document.getElementById('swc-add-input-' + key);
+      if (!box) return;
+      const opening = box.style.display === 'none';
+      box.style.display = opening ? 'block' : 'none';
+      if (opening && input) input.focus();
+    };
+  });
+  document.querySelectorAll('[data-quick-add-day]').forEach(input => {
+    input.addEventListener('keydown', e => { if (e.key === 'Escape') { input.value = ''; input.blur(); } });
+    input.addEventListener('blur', () => {
+      if (input.value.trim()) return; // keep open so a click on Add elsewhere doesn't eat the text
+      const box = input.closest('.swc-add-inline');
+      if (box) setTimeout(() => { if (!input.value.trim()) box.style.display = 'none'; }, 150);
+    });
+  });
+
   // Summary week calendar — drag and drop to reschedule
   let _dragTaskId = null;
   document.querySelectorAll('.swc-task[draggable]').forEach(card => {
@@ -796,9 +825,9 @@ function workSummaryHTML(projects, allTasks) {
     const overdue = t.dueDate && t.dueDate < todayStr;
     return '<div class="swc-task" draggable="true" data-task-id="' + t.id + '" data-summary-check="' + t.id + '">' +
       '<div class="swc-stripe" style="background:' + color + '"></div>' +
-      '<div class="swc-body">' +
+      '<div class="swc-body" data-summary-edit="' + t.id + '">' +
         '<div class="swc-name' + (overdue ? ' overdue' : '') + '">' + escHtml(t.title) + (overdue ? ' <span class="swc-overdue-tag">overdue</span>' : '') + '</div>' +
-        (proj ? '<div class="swc-proj">' + escHtml(proj.name) + '</div>' : '') +
+        (proj ? '<div class="swc-proj">' + escHtml(proj.name) + '</div>' : '<div class="swc-proj swc-proj-inbox">📥 Inbox</div>') +
       '</div>' +
       '<button class="swc-check" title="Done">' +
         '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
@@ -808,6 +837,7 @@ function workSummaryHTML(projects, allTasks) {
 
   const colsHTML = cols.map(col => {
     const cls = (col.today ? ' today' : '') + (col.key === 'none' ? ' swc-nodate' : '');
+    const canAdd = col.key !== 'later'; // "Later" is a range, not a specific date — nothing to add to
     return '<div class="swc-col' + cls + '" data-col-date="' + col.date + '">' +
       '<div class="swc-col-head">' +
         '<div class="swc-col-title">' + col.label + '</div>' +
@@ -817,6 +847,14 @@ function workSummaryHTML(projects, allTasks) {
       '<div class="swc-col-tasks">' +
         (col.tasks.length ? col.tasks.map(taskCard).join('') : '<div class="swc-empty">—</div>') +
       '</div>' +
+      (canAdd
+        ? '<div class="swc-col-add">' +
+            '<button class="swc-add-toggle" data-swc-add-toggle="' + col.key + '">+ Add</button>' +
+            '<div class="swc-add-inline" id="swc-add-inline-' + col.key + '" style="display:none">' +
+              '<input class="form-input" id="swc-add-input-' + col.key + '" data-quick-add-day="' + col.date + '" placeholder="Add a task…" autocomplete="off" />' +
+            '</div>' +
+          '</div>'
+        : '') +
     '</div>'
   }).join('');
 

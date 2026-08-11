@@ -1440,6 +1440,7 @@ body.dark .form-input {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  cursor: pointer;
 }
 
 .swc-name {
@@ -1457,6 +1458,35 @@ body.dark .form-input {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.swc-proj.swc-proj-inbox { color: var(--accent); }
+
+.swc-col-add { margin-top: 6px; }
+
+.swc-add-toggle {
+  width: 100%;
+  padding: 6px 4px;
+  border-radius: 6px;
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-3);
+  font-size: .74rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.swc-add-toggle:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.swc-add-inline { margin-top: 6px; }
+.swc-add-inline .form-input {
+  font-size: .78rem;
+  padding: 7px 9px;
 }
 
 .swc-check {
