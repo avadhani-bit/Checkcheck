@@ -1168,10 +1168,23 @@ body.dark .form-input {
 
 /* ─── BOARD LAYOUT (Work view desktop) ─── */
 .project-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
-  align-items: start;
+  /* Masonry-style: cards flow one after another with no dead space */
+  column-width: 340px;
+  column-gap: 20px;
+}
+
+.project-board > .project-expanded-card {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 20px;
+}
+
+/* 3 columns max when there's room */
+@media (min-width: 1100px) {
+  .project-board { column-count: 3; column-width: auto; }
 }
 
 /* ─── CHORE LATE (orange) ─── */
@@ -1251,7 +1264,8 @@ body.dark .form-input {
 }
 
 @media (max-width: 600px) {
-  .project-board { grid-template-columns: 1fr; gap: 16px; }
+  .project-board { column-count: 1; column-width: auto; column-gap: 16px; }
+  .project-board > .project-expanded-card { margin-bottom: 16px; }
   .mini-cal-pair  { gap: 16px; }
 }
 
