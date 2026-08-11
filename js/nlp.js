@@ -224,6 +224,26 @@
         return d ? toISO(d) : null;
       },
     },
+
+    // @Project — resolve against real project names (exact / no-space / prefix / contains).
+    // Only strips the mention when it actually resolves to a project, so a stray
+    // "@" in normal text is never eaten.
+    {
+      field: 'projectId',
+      re: /(^|\s)@([A-Za-z0-9][\w-]{0,40})\s*$/,
+      apply: m => {
+        if (typeof DB === 'undefined') return null;
+        const name = m[2].toLowerCase();
+        const projects = DB.get('projects') || [];
+        const norm = s => s.toLowerCase();
+        const match =
+          projects.find(p => norm(p.name) === name) ||
+          projects.find(p => norm(p.name).replace(/\s+/g, '') === name) ||
+          projects.find(p => norm(p.name).startsWith(name)) ||
+          projects.find(p => norm(p.name).includes(name));
+        return match ? match.id : null;
+      },
+    },
   ];
 
   // ─── PARSER ────────────────────────────────────────────────────
@@ -235,6 +255,7 @@
       priority: null,
       recurrence: null,
       tag: null,
+      projectId: null,
       matched: [],   // the chunks we stripped, for the preview chip
       found: false,
     };
@@ -274,7 +295,7 @@
     if (out.recurrence && !out.dueDate) out.dueDate = toISO(todayDate());
 
     out.title = s;
-    out.found = !!(out.dueDate || out.priority || out.recurrence || out.tag);
+    out.found = !!(out.dueDate || out.priority || out.recurrence || out.tag || out.projectId);
     return out;
   }
 
@@ -339,6 +360,14 @@
     if (p.dueDate)    html += '<span class="nlp-badge">' + prettyDate(p.dueDate) + '</span>';
     if (p.recurrence) html += '<span class="nlp-badge">' + RECUR_LABEL[p.recurrence] + '</span>';
     if (p.tag)        html += '<span class="nlp-badge">↩ follow-up</span>';
+    if (p.projectId && typeof DB !== 'undefined') {
+      const proj = (DB.get('projects') || []).find(x => x.id === p.projectId);
+      if (proj) {
+        html += '<span class="nlp-dot" style="background:' + esc(proj.color || '#6366F1') + '"></span>'
+              + '<span class="nlp-badge" style="background:transparent;color:inherit;padding-left:0">'
+              + esc(proj.name) + '</span>';
+      }
+    }
     if (p.priority) {
       html += '<span class="nlp-dot" style="background:' + PRIORITY_COLOR[p.priority] + '"></span>'
             + '<span class="nlp-badge" style="background:transparent;color:inherit;padding-left:0">'
@@ -381,6 +410,9 @@
     if (el.id === 'todo-add-input') {
       return { kind: 'todo', projectId: null, rerender: 'todo' };
     }
+    if (el.id === 'inbox-quick-add-input') {
+      return { kind: 'task', projectId: null, rerender: 'inbox' };
+    }
     return null;
   }
 
@@ -390,6 +422,7 @@
     const btn = el.closest ? el.closest('button') : null;
     if (!btn) return null;
 
+    if (btn.id === 'inbox-quick-add-btn') return document.getElementById('inbox-quick-add-input');
     if (btn.hasAttribute('data-quick-add-btn')) {
       return document.querySelector('[data-quick-add="' + btn.getAttribute('data-quick-add-btn') + '"]');
     }
@@ -412,9 +445,12 @@
     const now = Date.now();
 
     if (info.kind === 'task') {
+      // A fixed project context (project card / project detail quick-add) always
+      // wins; only an "unassigned" context (the Inbox) lets an @mention set it.
+      const finalProjectId = info.projectId || p.projectId || null;
       DB.add('tasks', {
         id: uid(),
-        projectId: info.projectId,
+        projectId: finalProjectId,
         title: p.title,
         done: false,
         dueDate: p.dueDate,
@@ -447,8 +483,16 @@
       ? '#' + input.id
       : '[data-quick-add="' + info.projectId + '"]';
 
-    if (info.rerender === 'todo' && typeof renderTodoPanel === 'function') renderTodoPanel();
-    else if (typeof render === 'function') render();
+    if (info.rerender === 'todo' && typeof renderTodoPanel === 'function') {
+      renderTodoPanel();
+    } else if (info.rerender === 'inbox') {
+      // The Inbox tray lives outside #main-content, so refresh it directly —
+      // plus a normal render() to keep the header badge / board in sync.
+      if (typeof render === 'function') render();
+      if (typeof window.refreshInboxTray === 'function') window.refreshInboxTray();
+    } else if (typeof render === 'function') {
+      render();
+    }
 
     requestAnimationFrame(() => {
       const again = document.querySelector(selector);

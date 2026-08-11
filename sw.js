@@ -1,5 +1,5 @@
-/* CheckCheck — Service Worker v9 */
-const CACHE = 'checkcheck-v9';
+/* CheckCheck — Service Worker v10 */
+const CACHE = 'checkcheck-v10';
 const PRECACHE = [
   './index.html',
   './css/app.css',
