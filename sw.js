@@ -1,9 +1,10 @@
-/* CheckCheck — Service Worker v8 */
-const CACHE = 'checkcheck-v8';
+/* CheckCheck — Service Worker v9 */
+const CACHE = 'checkcheck-v9';
 const PRECACHE = [
   './index.html',
   './css/app.css',
   './js/app.js',
+  './js/nlp.js',
   './manifest.json',
   './assets/icon-192.png',
   './assets/icon-512.png',
