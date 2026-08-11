@@ -175,6 +175,7 @@ const state = {
   mode:          'work',     // 'work' | 'personal'
   activeProject: null,       // project id when in completed-task detail
   activeChore:   null,       // chore id when in chore history detail
+  choreHistoryShowAll: false, // false = capped to 5 most recent, true = full list
   personalTab:   'todo',     // 'todo' | 'shopping' | 'chores' | 'habits'
   activeHabit:   null,       // habit id when in habit detail
   habitGraphView:  'year',   // 'year' | 'month'
@@ -1261,6 +1262,7 @@ function renderChoresPanel() {
   document.querySelectorAll('[data-chore-detail]').forEach(el => {
     el.onclick = () => {
       state.activeChore = el.dataset.choreDetail;
+      state.choreHistoryShowAll = false;
       render();
     };
   });
@@ -1625,8 +1627,10 @@ function renderChoreDetail() {
       <div class="card-header"><span class="card-title">History (${history.length})</span></div>
       ${history.length === 0
         ? `<div class="empty-state" style="padding:28px 20px"><p>Not done yet — hit Mark Done to start tracking!</p></div>`
-        : `<div class="task-list">
-            ${history.map((ts, i) => {
+        : (() => {
+            const showAll = state.choreHistoryShowAll || history.length <= 5;
+            const shown = showAll ? history : history.slice(0, 5);
+            const rows = shown.map((ts, i) => {
               const prev = history[i + 1];
               const days = prev ? Math.round((ts - prev) / 86400000) : null;
               const isLate = days !== null && days > chore.intervalDays * 1.15;
@@ -1641,8 +1645,12 @@ function renderChoreDetail() {
                   </div>
                 </div>
               `;
-            }).join('')}
-          </div>`}
+            }).join('');
+            const toggle = history.length > 5
+              ? `<button class="chore-history-toggle" id="chore-history-toggle">${showAll ? 'Show less' : `See more (${history.length - 5} more)`}</button>`
+              : '';
+            return `<div class="task-list">${rows}</div>${toggle}`;
+          })()}
     </div>
   `;
 
@@ -1651,6 +1659,11 @@ function renderChoreDetail() {
     state.personalTab = 'chores';
     renderPersonal();
   };
+
+  document.getElementById('chore-history-toggle')?.addEventListener('click', () => {
+    state.choreHistoryShowAll = !state.choreHistoryShowAll;
+    renderChoreDetail();
+  });
 
   document.getElementById('chore-done-now').onclick = () => {
     markChoreDone(state.activeChore);
