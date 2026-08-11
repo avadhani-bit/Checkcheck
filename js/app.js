@@ -181,6 +181,7 @@ const state = {
   habitGraphYear:  new Date().getFullYear(),
   habitGraphMonth: new Date().getMonth(),
   workView:      'board',    // 'board' | 'reports'
+  workLayout:    (localStorage.getItem('cc_workLayout') || 'hybrid'), // 'hybrid' | 'projects' | 'calendar'
   reportMonth:   new Date().getMonth(),
   reportYear:    new Date().getFullYear(),
   projectMonth:  new Date().getMonth(),
@@ -334,7 +335,9 @@ function renderWork() {
         <div class="page-title">Work</div>
       </div>
       <div class="work-tabs">
-        <button class="work-tab ${state.workView === 'board' ? 'active' : ''}" data-work-view="board">Tasks</button>
+        <button class="work-tab ${state.workLayout === 'calendar' ? 'active' : ''}" data-work-layout="calendar">Calendar</button>
+        <button class="work-tab ${state.workLayout === 'hybrid'   ? 'active' : ''}" data-work-layout="hybrid">Hybrid</button>
+        <button class="work-tab ${state.workLayout === 'projects' ? 'active' : ''}" data-work-layout="projects">Projects</button>
       </div>
       <button class="add-btn" id="btn-add-project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -344,8 +347,10 @@ function renderWork() {
 
     ${projects.length === 0
       ? `<div class="empty-state"><div class="empty-state-icon">📁</div><p>No projects yet.<br>Hit <strong>New Project</strong> to get started.</p></div>`
-      : `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>
-         ${workSummaryHTML(projects, allTasks)}`}
+      : `${state.workLayout !== 'projects' ? workSummaryHTML(projects, allTasks) : ''}
+         ${state.workLayout !== 'calendar'
+            ? `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>`
+            : ''}`}
   `;
 
   document.querySelectorAll('[data-work-view]').forEach(btn => {
@@ -353,6 +358,13 @@ function renderWork() {
       state.workView = btn.dataset.workView;
       if (state.workView === 'reports') renderReports();
       else renderWork();
+    };
+  });
+  document.querySelectorAll('[data-work-layout]').forEach(btn => {
+    btn.onclick = () => {
+      state.workLayout = btn.dataset.workLayout;
+      localStorage.setItem('cc_workLayout', state.workLayout);
+      renderWork();
     };
   });
   document.getElementById('btn-add-project').onclick = () => openProjectModal();
@@ -618,7 +630,8 @@ function workSummaryHTML(projects, allTasks) {
     '</div>'
   }).join('');
 
-  return '<div class="work-summary"><div class="swc-grid">' + colsHTML + '</div></div>';
+  const layoutCls = state.workLayout === 'calendar' ? ' swc-full' : '';
+  return '<div class="work-summary' + layoutCls + '"><div class="swc-grid">' + colsHTML + '</div></div>';
 }
 
 function quickAddTask(projectId, input) {

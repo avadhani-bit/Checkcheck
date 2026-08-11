@@ -1271,7 +1271,8 @@ body.dark .form-input {
 
 /* ─── WORK SUMMARY — WEEK CALENDAR ─── */
 .work-summary {
-  margin-top: 28px;
+  margin-top: 0;
+  margin-bottom: 24px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1340,7 +1341,28 @@ body.dark .form-input {
   color: var(--accent);
 }
 
-.swc-col-tasks { display: flex; flex-direction: column; gap: 6px; }
+.swc-col-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+/* Calendar-only view gets more vertical room */
+.work-summary.swc-full .swc-col-tasks {
+  max-height: calc(100vh - 280px);
+}
+
+/* Slim scrollbars inside day columns */
+.swc-col-tasks::-webkit-scrollbar { width: 6px; }
+.swc-col-tasks::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+.swc-col-tasks::-webkit-scrollbar-track { background: transparent; }
 
 .swc-task {
   display: flex;
@@ -1802,7 +1824,8 @@ body.dark .task-tag.tag-recur {
 
 /* Work board tighter gap on mobile */
 @media (max-width: 600px) {
-  .work-tabs { display: none; }  /* shown inline in Work header instead */
+  .work-tabs { order: 3; width: 100%; justify-content: center; }
+  .work-tab  { flex: 1; padding: 6px 8px; }
   .page-header { gap: 10px; flex-wrap: wrap; }
 }
 
