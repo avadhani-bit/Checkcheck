@@ -212,7 +212,180 @@ function syncHeader() {
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === state.mode);
   });
+  const inboxBtn = document.getElementById('inbox-btn');
+  if (inboxBtn) inboxBtn.style.display = state.mode === 'work' ? 'flex' : 'none';
+  const countEl = document.getElementById('inbox-count');
+  if (countEl) {
+    const n = DB.get('tasks').filter(t => !t.projectId && !t.done).length;
+    if (n > 0) { countEl.textContent = n > 99 ? '99+' : String(n); countEl.style.display = 'block'; }
+    else countEl.style.display = 'none';
+  }
 }
+
+// ─── INBOX (work-mode-only capture tray) ───────────────────────────
+
+function inboxTasks() {
+  return DB.get('tasks')
+    .filter(t => !t.projectId && !t.done)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+function closeInboxTray() {
+  document.getElementById('inbox-backdrop')?.remove();
+  document.getElementById('inbox-tray')?.remove();
+  document.removeEventListener('keydown', _inboxEscHandler);
+}
+
+function _inboxEscHandler(e) { if (e.key === 'Escape') closeInboxTray(); }
+
+function inboxRowHTML(t) {
+  const due = fmt.dueLabel(t.dueDate);
+  return `
+    <div class="inbox-row" data-inbox-row="${t.id}">
+      <div class="task-check" data-inbox-check="${t.id}"></div>
+      <div class="inbox-row-body">
+        <div style="display:flex;align-items:center;gap:6px">
+          ${priorityDot(t.priority)}
+          <div class="task-name">${escHtml(t.title)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:${(due || t.recurrence || t.tag) ? '2px' : '0'}">
+          ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+          ${t.recurrence ? `<span class="task-tag tag-recur">${RECUR_LABELS[t.recurrence] || ''}</span>` : ''}
+          ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
+        </div>
+      </div>
+      <button class="inbox-assign-btn" data-inbox-assign="${t.id}">Assign</button>
+      <button class="task-action-btn delete" data-inbox-delete="${t.id}" title="Delete">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+function inboxListHTML() {
+  const items = inboxTasks();
+  if (items.length === 0) {
+    return `<div class="empty-state" style="padding:28px 16px"><div class="empty-state-icon">📥</div><p>Inbox is empty.<br>Jot something down above.</p></div>`;
+  }
+  return `<div class="inbox-list">${items.map(inboxRowHTML).join('')}</div>`;
+}
+
+function wireInboxListEvents() {
+  document.querySelectorAll('[data-inbox-check]').forEach(el => {
+    el.onclick = () => {
+      DB.update('tasks', el.dataset.inboxCheck, { done: true, completedAt: Date.now() });
+      refreshInboxTray();
+      if (state.mode === 'work') render();
+    };
+  });
+  document.querySelectorAll('[data-inbox-delete]').forEach(el => {
+    el.onclick = () => {
+      DB.remove('tasks', el.dataset.inboxDelete);
+      refreshInboxTray();
+      if (state.mode === 'work') render();
+    };
+  });
+  document.querySelectorAll('[data-inbox-assign]').forEach(el => {
+    el.onclick = e => {
+      e.stopPropagation();
+      openInboxProjectPicker(el, el.dataset.inboxAssign);
+    };
+  });
+}
+
+function openInboxProjectPicker(btn, taskId) {
+  document.getElementById('inbox-project-picker')?.remove();
+  const projects = DB.get('projects');
+  const picker = document.createElement('div');
+  picker.id = 'inbox-project-picker';
+  picker.className = 'inbox-project-picker';
+  picker.innerHTML = projects.length
+    ? projects.map(p =>
+        `<button class="inbox-project-option" data-assign-project="${p.id}">` +
+          `<span class="project-color-dot" style="background:${escHtml(p.color || '#6366F1')}"></span>${escHtml(p.name)}` +
+        `</button>`
+      ).join('')
+    : `<div style="padding:10px 12px;font-size:.8rem;color:var(--text-3)">No projects yet</div>`;
+  document.body.appendChild(picker);
+
+  const r = btn.getBoundingClientRect();
+  const pw = picker.offsetWidth || 180;
+  let left = Math.min(r.left, window.innerWidth - pw - 8);
+  picker.style.top  = (r.bottom + 4) + 'px';
+  picker.style.left = Math.max(8, left) + 'px';
+
+  picker.querySelectorAll('[data-assign-project]').forEach(opt => {
+    opt.onclick = e => {
+      e.stopPropagation();
+      DB.update('tasks', taskId, { projectId: opt.dataset.assignProject });
+      picker.remove();
+      refreshInboxTray();
+      if (state.mode === 'work') render();
+    };
+  });
+
+  setTimeout(() => {
+    document.addEventListener('click', function outside(ev) {
+      if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', outside); }
+    });
+  }, 0);
+}
+
+function refreshInboxTray() {
+  const listEl = document.getElementById('inbox-list-wrap');
+  if (!listEl) return; // tray not open
+  listEl.innerHTML = inboxListHTML();
+  wireInboxListEvents();
+  const countEl = document.getElementById('inbox-tray-count');
+  const n = inboxTasks().length;
+  if (countEl) countEl.textContent = n ? `${n} to triage` : '';
+  syncHeader();
+}
+
+function openInboxTray() {
+  if (document.getElementById('inbox-tray')) { closeInboxTray(); return; }
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'inbox-backdrop';
+  backdrop.className = 'inbox-backdrop';
+  backdrop.onclick = closeInboxTray;
+  document.body.appendChild(backdrop);
+
+  const tray = document.createElement('div');
+  tray.id = 'inbox-tray';
+  tray.className = 'inbox-tray';
+  tray.innerHTML = `
+    <div class="inbox-tray-header">
+      <div>
+        <div class="inbox-tray-title">📥 Inbox</div>
+        <div class="inbox-tray-sub" id="inbox-tray-count"></div>
+      </div>
+      <button class="modal-close" id="inbox-close-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="inbox-quickadd">
+      <input class="form-input" id="inbox-quick-add-input" placeholder="Jot something down…" autocomplete="off" />
+      <button class="btn-primary" id="inbox-quick-add-btn" style="padding:9px 14px">Add</button>
+    </div>
+    <div class="inbox-hint">Type <strong>@Project</strong> to assign it directly — otherwise it lands here for you to sort later.</div>
+    <div id="inbox-list-wrap">${inboxListHTML()}</div>
+  `;
+  document.body.appendChild(tray);
+  requestAnimationFrame(() => tray.classList.add('open'));
+
+  document.getElementById('inbox-close-btn').onclick = closeInboxTray;
+  document.addEventListener('keydown', _inboxEscHandler);
+  wireInboxListEvents();
+
+  const countEl = document.getElementById('inbox-tray-count');
+  const n = inboxTasks().length;
+  if (countEl) countEl.textContent = n ? `${n} to triage` : '';
+
+  document.getElementById('inbox-quick-add-input').focus();
+}
+
+window.refreshInboxTray = refreshInboxTray;
 
 // ─── GLOBAL TIMER SYSTEM ────────────────────────────────────────
 const TIMER_KEY = 'cc_active_timer';
@@ -3134,11 +3307,13 @@ function _appInit() {
       state.workView      = 'board'; // always go to board when switching modes
       state.activeProject = null;
       state.activeChore   = null;
+      closeInboxTray();
       render();
     };
   });
 
   document.getElementById('data-btn').onclick = openDataModal;
+  document.getElementById('inbox-btn').onclick = openInboxTray;
 
   document.getElementById('modal-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
