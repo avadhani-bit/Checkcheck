@@ -386,7 +386,7 @@ function renderWork() {
       if (!card) return;
       const t = DB.get('tasks').find(x => x.id === card.dataset.summaryCheck);
       if (!t) return;
-      DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
+      completeTaskWithRecur(t.id);
       render();
     };
   });
@@ -432,8 +432,8 @@ function renderWork() {
     el.onclick = () => {
       const t = DB.get('tasks').find(x => x.id === el.dataset.checkId);
       if (!t) return;
-      const done = !t.done;
-      DB.update('tasks', t.id, { done, completedAt: done ? Date.now() : null });
+      if (!t.done) completeTaskWithRecur(t.id);
+      else DB.update('tasks', t.id, { done: false, completedAt: null });
       render();
     };
   });
@@ -738,6 +738,7 @@ function workTaskRow(t) {
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:${(due || t.tag) ? '2px' : '0'}">
           ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
           ${t.tag === 'follow-up' ? '<span class="task-tag tag-follow-up">↩ follow-up</span>' : ''}
+          ${t.recurrence ? `<span class="task-tag tag-recur">${RECUR_LABELS[t.recurrence] || ''}</span>` : ''}
         </div>
         ${t.notes ? `<div class="task-notes-preview">${escHtml(t.notes.slice(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : ''}
         ${subList}
@@ -877,7 +878,7 @@ function renderProjectCompleted() {
     el.onclick = () => {
       const t = DB.get('tasks').find(x => x.id === el.dataset.checkId);
       if (!t) return;
-      DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
+      completeTaskWithRecur(t.id);
       renderProjectCompleted();
     };
   });
@@ -1072,6 +1073,24 @@ function nextRecurDate(fromDate, recurrence) {
 }
 
 const RECUR_LABELS = { daily: '↻ daily', weekly: '↻ weekly', monthly: '↻ monthly' };
+
+// Mark a work task done; if it recurs, spawn the next occurrence
+// (fresh subtasks, same project/notes/tag/priority).
+function completeTaskWithRecur(taskId) {
+  const t = DB.get('tasks').find(x => x.id === taskId);
+  if (!t) return;
+  DB.update('tasks', t.id, { done: true, completedAt: Date.now() });
+  if (t.recurrence) {
+    const nextDue = nextRecurDate(t.dueDate, t.recurrence);
+    DB.add('tasks', {
+      id: uid(), projectId: t.projectId, title: t.title, done: false,
+      dueDate: nextDue, notes: t.notes || null, tag: t.tag || null,
+      priority: t.priority || null, recurrence: t.recurrence,
+      subtasks: (t.subtasks || []).map(s => ({ ...s, done: false })),
+      completedAt: null, createdAt: Date.now()
+    });
+  }
+}
 
 const PRIORITIES = [
   { key: 'high',   label: '↑ High',   color: '#EF4444' },
@@ -2682,6 +2701,15 @@ function openTaskModal(project, existing) {
       <input class="form-input" id="task-due" type="date" value="${existing?.dueDate || ''}" />
     </div>
     <div class="form-group">
+      <label class="form-label">Repeats</label>
+      <select class="form-input" id="task-recurrence">
+        <option value="none"    ${!existing?.recurrence ? 'selected' : ''}>Does not repeat</option>
+        <option value="daily"   ${existing?.recurrence === 'daily'   ? 'selected' : ''}>Daily</option>
+        <option value="weekly"  ${existing?.recurrence === 'weekly'  ? 'selected' : ''}>Weekly</option>
+        <option value="monthly" ${existing?.recurrence === 'monthly' ? 'selected' : ''}>Monthly</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label class="form-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
       <textarea class="form-input notes-area" id="task-notes" placeholder="Jot down anything — details, links, context…">${escHtml(existing?.notes || '')}</textarea>
     </div>
@@ -2777,13 +2805,15 @@ function openTaskModal(project, existing) {
   document.getElementById('modal-save').onclick = () => {
     const title   = document.getElementById('task-name').value.trim();
     const dueDate = document.getElementById('task-due').value || null;
+    const recurrenceVal = document.getElementById('task-recurrence').value;
+    const recurrence = recurrenceVal === 'none' ? null : recurrenceVal;
     const notes   = document.getElementById('task-notes').value.trim() || null;
     const tag     = document.getElementById('task-followup').checked ? 'follow-up' : null;
     const subtasks = _modalSubtasks;
     const priority = (document.querySelector('input[name="task-priority"]:checked') || {}).value || null;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, notes, tag, subtasks, priority: priority || null });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, notes, tag, subtasks, priority: priority || null, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, recurrence, notes, tag, subtasks, priority: priority || null });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, recurrence, notes, tag, subtasks, priority: priority || null, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
