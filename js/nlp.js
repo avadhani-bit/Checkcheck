@@ -413,6 +413,12 @@
     if (el.id === 'inbox-quick-add-input') {
       return { kind: 'task', projectId: null, rerender: 'inbox' };
     }
+    if (el.hasAttribute('data-quick-add-day')) {
+      // Calendar "+ Add" — the clicked day always wins over whatever date (if any)
+      // ends up typed and stripped; @Project still works to assign it.
+      const raw = el.getAttribute('data-quick-add-day');
+      return { kind: 'task', projectId: null, fixedDueDate: raw === 'none' ? null : raw, rerender: 'work' };
+    }
     return null;
   }
 
@@ -446,14 +452,17 @@
 
     if (info.kind === 'task') {
       // A fixed project context (project card / project detail quick-add) always
-      // wins; only an "unassigned" context (the Inbox) lets an @mention set it.
+      // wins; only an "unassigned" context (the Inbox, or a calendar day) lets
+      // an @mention set it. A fixed due date (calendar day clicked) always wins
+      // over whatever gets typed and stripped.
       const finalProjectId = info.projectId || p.projectId || null;
+      const finalDueDate = ('fixedDueDate' in info) ? info.fixedDueDate : p.dueDate;
       DB.add('tasks', {
         id: uid(),
         projectId: finalProjectId,
         title: p.title,
         done: false,
-        dueDate: p.dueDate,
+        dueDate: finalDueDate,
         priority: p.priority,
         recurrence: p.recurrence,
         tag: p.tag,
