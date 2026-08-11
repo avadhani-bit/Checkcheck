@@ -418,7 +418,8 @@ function renderWork() {
       e.preventDefault();
       col.classList.remove('swc-drop-over');
       if (!_dragTaskId) return;
-      const colDate = col.dataset.colDate; // 'none' or 'YYYY-MM-DD'
+      const colDate = col.dataset.colDate; // '' (Later, not droppable) | 'none' | 'YYYY-MM-DD'
+      if (!colDate) { _dragTaskId = null; return; }
       const newDue = colDate === 'none' ? null : colDate;
       DB.update('tasks', _dragTaskId, { dueDate: newDue });
       _dragTaskId = null;
@@ -579,26 +580,40 @@ function workSummaryHTML(projects, allTasks) {
     return ldStr(d); // use local date, not UTC
   }
   const todayStr = dayStr(0);
-  const cols = [
-    { key: 'none',  label: 'No date',  sub: '',          tasks: [] },
-    { key: 'today', label: 'Today',    sub: new Date(now).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [] },
-    { key: 'd1',    label: 'Tomorrow', sub: new Date(now.getTime()+86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [] },
-    { key: 'd2',    label: dayStr(2),  sub: new Date(now.getTime()+2*86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [], useDate:true },
-    { key: 'd3',    label: dayStr(3),  sub: new Date(now.getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}), tasks: [], useDate:true },
-  ];
-  // Fix labels for +2/+3 (use weekday name)
-  cols[3].label = new Date(now.getTime()+2*86400000).toLocaleDateString('en-US',{weekday:'long'});
-  cols[4].label = new Date(now.getTime()+3*86400000).toLocaleDateString('en-US',{weekday:'long'});
+  const DAYS_AHEAD = 14; // rendered; only "No date + 3 days" fit on screen, rest via horizontal scroll
 
-  // Overdue bucket shows in today column
+  // No date + a rolling run of days
+  const cols = [{ key: 'none', label: 'No date', sub: '', date: 'none', tasks: [] }];
+  for (let i = 0; i < DAYS_AHEAD; i++) {
+    const d = new Date(now); d.setDate(d.getDate() + i);
+    const label = i === 0 ? 'Today'
+                : i === 1 ? 'Tomorrow'
+                : d.toLocaleDateString('en-US', { weekday: 'long' });
+    cols.push({
+      key:   'd' + i,
+      label,
+      sub:   d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      date:  dayStr(i),
+      today: i === 0,
+      tasks: [],
+    });
+  }
+  // Anything further out than the rendered window
+  const laterCol = { key: 'later', label: 'Later', sub: '', date: '', tasks: [] };
+
+  const byDate = {};
+  cols.forEach(c => { if (c.date !== 'none') byDate[c.date] = c; });
+  const lastStr = dayStr(DAYS_AHEAD - 1);
+
+  // Overdue lands in the Today column
   open.forEach(t => {
     if (!t.dueDate) { cols[0].tasks.push(t); return; }
     const s = t.dueDate; // already a local YYYY-MM-DD string
-    if (s <= todayStr)        cols[1].tasks.push(t);
-    else if (s === dayStr(1)) cols[2].tasks.push(t);
-    else if (s === dayStr(2)) cols[3].tasks.push(t);
-    else if (s === dayStr(3)) cols[4].tasks.push(t);
+    if (s <= todayStr)      cols[1].tasks.push(t);
+    else if (s <= lastStr)  (byDate[s] || laterCol).tasks.push(t);
+    else                    laterCol.tasks.push(t);
   });
+  if (laterCol.tasks.length) cols.push(laterCol);
 
   function taskCard(t) {
     const proj  = projects.find(p => p.id === t.projectId);
@@ -616,9 +631,9 @@ function workSummaryHTML(projects, allTasks) {
     '</div>';
   }
 
-  const colsHTML = cols.map((col, ci) => {
-    const colDate = col.key === 'none' ? 'none' : dayStr(ci - 1);
-    return '<div class="swc-col' + (col.key === 'today' ? ' today' : '') + '" data-col-date="' + colDate + '">' +
+  const colsHTML = cols.map(col => {
+    const cls = (col.today ? ' today' : '') + (col.key === 'none' ? ' swc-nodate' : '');
+    return '<div class="swc-col' + cls + '" data-col-date="' + col.date + '">' +
       '<div class="swc-col-head">' +
         '<div class="swc-col-title">' + col.label + '</div>' +
         (col.sub ? '<div class="swc-col-sub">' + col.sub + '</div>' : '') +
