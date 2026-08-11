@@ -176,6 +176,7 @@ const state = {
   activeProject: null,       // project id when in completed-task detail
   activeChore:   null,       // chore id when in chore history detail
   choreHistoryShowAll: false, // false = capped to 5 most recent, true = full list
+  habitHistoryShowAll: false, // false = capped to 5 most recent, true = full list
   personalTab:   'todo',     // 'todo' | 'shopping' | 'chores' | 'habits'
   activeHabit:   null,       // habit id when in habit detail
   habitGraphView:  'year',   // 'year' | 'month'
@@ -2001,7 +2002,7 @@ function renderHabitsPanel() {
     el.onclick = e => { e.stopPropagation(); markHabitDone(el.dataset.habitToggle); renderHabitsPanel(); };
   });
   document.querySelectorAll('[data-habit-detail]').forEach(el => {
-    el.onclick = () => { state.activeHabit = el.dataset.habitDetail; renderHabitDetail(); };
+    el.onclick = () => { state.activeHabit = el.dataset.habitDetail; state.habitHistoryShowAll = false; renderHabitDetail(); };
   });
   document.querySelectorAll('[data-habit-edit]').forEach(el => {
     el.onclick = e => { e.stopPropagation(); const h = DB.get('habits').find(x => x.id === el.dataset.habitEdit); if (h) openHabitModal(h); };
@@ -2203,20 +2204,28 @@ function renderHabitDetail() {
 
     <div class="card">
       <div class="card-header"><span class="card-title">Recent history</span></div>
-      <div class="task-list">
-        ${(habit.history || []).length === 0
-          ? '<div class="empty-state" style="padding:24px 20px"><p>No completions yet — start today!</p></div>'
-          : [...(habit.history || [])].sort((a, b) => b - a).slice(0, 20).map((ts, i, arr) => `
+      ${(() => {
+        const fullHistory = [...(habit.history || [])].sort((a, b) => b - a);
+        if (fullHistory.length === 0) {
+          return '<div class="empty-state" style="padding:24px 20px"><p>No completions yet — start today!</p></div>';
+        }
+        const showAll = state.habitHistoryShowAll || fullHistory.length <= 5;
+        const shownCount = showAll ? fullHistory.length : 5;
+        const rows = fullHistory.slice(0, shownCount).map((ts, i) => `
               <div class="chore-history-row">
                 <div class="chore-history-dot" style="background:${color}"></div>
                 <div class="chore-history-body">
                   <div class="chore-history-date">${fmt.date(ts)}</div>
-                  ${i < arr.length - 1
-                    ? '<div class="chore-history-interval good">' + Math.round((ts - arr[i+1]) / 86400000) + ' days since previous</div>'
+                  ${i < fullHistory.length - 1
+                    ? '<div class="chore-history-interval good">' + Math.round((ts - fullHistory[i+1]) / 86400000) + ' days since previous</div>'
                     : '<div class="chore-history-interval">First recorded</div>'}
                 </div>
-              </div>`).join('')}
-      </div>
+              </div>`).join('');
+        const toggle = fullHistory.length > 5
+          ? `<button class="chore-history-toggle" id="habit-history-toggle">${showAll ? 'Show less' : `See more (${fullHistory.length - 5} more)`}</button>`
+          : '';
+        return `<div class="task-list">${rows}</div>${toggle}`;
+      })()}
     </div>
   `;
 
@@ -2224,6 +2233,10 @@ function renderHabitDetail() {
   document.getElementById('edit-habit-btn').onclick = () => { const h = DB.get('habits').find(x => x.id === state.activeHabit); if (h) openHabitModal(h); };
   document.getElementById('habit-done-now').onclick = () => { markHabitDone(state.activeHabit); renderHabitDetail(); };
   document.getElementById('habit-import-btn').onclick = () => openHabitImportModal(state.activeHabit);
+  document.getElementById('habit-history-toggle')?.addEventListener('click', () => {
+    state.habitHistoryShowAll = !state.habitHistoryShowAll;
+    renderHabitDetail();
+  });
 
   // Graph tab switcher
   const hgtYear  = document.getElementById('hgt-year');
