@@ -1105,6 +1105,7 @@ function todoRow(t) {
           ${subProgress}
         </div>
         ${due ? `<div class="task-due ${due.cls}">${due.text}</div>` : ''}
+        ${t.notes ? `<div class="task-notes-preview">${escHtml(t.notes.slice(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : ''}
         ${subList}
       </div>
       ${t.recurrence && !t.done ? `<span class="task-tag tag-recur">${RECUR_LABELS[t.recurrence] || ''}</span>` : ''}
@@ -2682,7 +2683,7 @@ function openTaskModal(project, existing) {
     </div>
     <div class="form-group">
       <label class="form-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
-      <textarea class="form-input" id="task-notes" rows="3" placeholder="Any details, links, context…" style="resize:vertical;min-height:72px">${escHtml(existing?.notes || '')}</textarea>
+      <textarea class="form-input notes-area" id="task-notes" placeholder="Jot down anything — details, links, context…">${escHtml(existing?.notes || '')}</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">Priority</label>
@@ -2731,12 +2732,27 @@ function openTaskModal(project, existing) {
     el.innerHTML = _modalSubtasks.map((s, i) =>
       `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border-light)">` +
       `<input type="checkbox" ${s.done ? 'checked' : ''} data-modal-sub="${i}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />` +
-      `<span style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${escHtml(s.title)}</span>` +
+      `<input type="text" class="subtask-edit" data-modal-sub-edit="${i}" value="${escHtml(s.title)}" ` +
+        `style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}" />` +
       `<button type="button" data-modal-sub-del="${i}" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px 4px;font-size:.9rem;line-height:1" title="Remove">✕</button>` +
       `</div>`
     ).join('');
     el.querySelectorAll('[data-modal-sub]').forEach(cb => {
       cb.onchange = () => { _modalSubtasks[+cb.dataset.modalSub].done = cb.checked; renderModalSubtasks(); autosaveSubtasks(); };
+    });
+    el.querySelectorAll('[data-modal-sub-edit]').forEach(inp => {
+      const commit = () => {
+        const i = +inp.dataset.modalSubEdit;
+        const val = inp.value.trim();
+        if (!val || val === _modalSubtasks[i].title) { inp.value = _modalSubtasks[i].title; return; }
+        _modalSubtasks[i].title = val;
+        autosaveSubtasks();
+      };
+      inp.onblur = commit;
+      inp.onkeydown = e => {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') { inp.value = _modalSubtasks[+inp.dataset.modalSubEdit].title; inp.blur(); }
+      };
     });
     el.querySelectorAll('[data-modal-sub-del]').forEach(btn => {
       btn.onclick = () => { _modalSubtasks.splice(+btn.dataset.modalSubDel, 1); renderModalSubtasks(); autosaveSubtasks(); };
@@ -2801,6 +2817,10 @@ function openTodoModal(existing) {
       <label class="form-label">Reminder <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
       <input class="form-input" id="todo-reminder" type="time" value="${existing?.reminderTime || ''}" />
     </div>
+    <div class="form-group">
+      <label class="form-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
+      <textarea class="form-input notes-area" id="todo-notes" placeholder="Jot down anything — details, links, context…">${escHtml(existing?.notes || '')}</textarea>
+    </div>
     <div class="form-actions">
       <button class="btn-secondary" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-save">${isEdit ? 'Save' : 'Add'}</button>
@@ -2835,12 +2855,27 @@ function openTodoModal(existing) {
     el.innerHTML = _todoModalSubtasks.map((s, i) =>
       `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border-light)">` +
       `<input type="checkbox" ${s.done ? 'checked' : ''} data-todo-modal-sub="${i}" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" />` +
-      `<span style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${escHtml(s.title)}</span>` +
+      `<input type="text" class="subtask-edit" data-todo-modal-sub-edit="${i}" value="${escHtml(s.title)}" ` +
+        `style="flex:1;font-size:.85rem;${s.done ? 'text-decoration:line-through;color:var(--text-3)' : ''}" />` +
       `<button type="button" data-todo-modal-sub-del="${i}" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px 4px;font-size:.9rem;line-height:1" title="Remove">✕</button>` +
       `</div>`
     ).join('');
     el.querySelectorAll('[data-todo-modal-sub]').forEach(cb => {
       cb.onchange = () => { _todoModalSubtasks[+cb.dataset.todoModalSub].done = cb.checked; renderTodoModalSubtasks(); autosaveTodoSubtasks(); };
+    });
+    el.querySelectorAll('[data-todo-modal-sub-edit]').forEach(inp => {
+      const commit = () => {
+        const i = +inp.dataset.todoModalSubEdit;
+        const val = inp.value.trim();
+        if (!val || val === _todoModalSubtasks[i].title) { inp.value = _todoModalSubtasks[i].title; return; }
+        _todoModalSubtasks[i].title = val;
+        autosaveTodoSubtasks();
+      };
+      inp.onblur = commit;
+      inp.onkeydown = e => {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') { inp.value = _todoModalSubtasks[+inp.dataset.todoModalSubEdit].title; inp.blur(); }
+      };
     });
     el.querySelectorAll('[data-todo-modal-sub-del]').forEach(btn => {
       btn.onclick = () => { _todoModalSubtasks.splice(+btn.dataset.todoModalSubDel, 1); renderTodoModalSubtasks(); autosaveTodoSubtasks(); };
@@ -2868,9 +2903,10 @@ function openTodoModal(existing) {
     const recurrence   = document.getElementById('todo-recurrence').value;
     const reminderTime = document.getElementById('todo-reminder').value || null;
     const subtasks     = _todoModalSubtasks;
+    const notes        = document.getElementById('todo-notes').value.trim() || null;
     if (!title) { document.getElementById('todo-name').focus(); return; }
-    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks });
-    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('todos', existing.id, { title, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks, notes });
+    else DB.add('todos', { id: uid(), title, done: false, dueDate, recurrence: recurrence === 'none' ? null : recurrence, reminderTime, subtasks, notes, completedAt: null, createdAt: Date.now() });
     closeModal();
     renderTodoPanel();
   };
