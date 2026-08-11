@@ -1280,20 +1280,38 @@ body.dark .form-input {
   box-shadow: var(--shadow-sm);
 }
 
-/* 5-column grid: No date | Today | Tomorrow | +2 | +3 */
+/* Shows No date + 3 days; further days reachable by horizontal scroll */
 .swc-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: calc(25% - 0.75px);
   gap: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: 6px;
 }
+
+.swc-grid::-webkit-scrollbar { height: 8px; }
+.swc-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+.swc-grid::-webkit-scrollbar-track { background: transparent; }
 
 .swc-col {
   border-right: 1px solid var(--border-light);
   padding: 0 12px 8px;
   min-width: 0;
+  scroll-snap-align: start;
 }
-.swc-col:first-child { padding-left: 0; }
-.swc-col:last-child  { border-right: none; padding-right: 0; }
+.swc-col:last-child  { border-right: none; }
+
+/* Keep "No date" pinned while scrolling through days */
+.swc-col.swc-nodate {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding-left: 0;
+}
 
 .swc-col.today .swc-col-title {
   color: var(--accent);
@@ -1449,13 +1467,11 @@ body.dark .form-input {
   vertical-align: middle;
 }
 
-@media (max-width: 700px) {
-  .swc-grid { grid-template-columns: repeat(3, 1fr); }
-  .swc-col:nth-child(4), .swc-col:nth-child(5) { display: none; }
+@media (max-width: 900px) {
+  .swc-grid { grid-auto-columns: calc(33.333% - 0.67px); }
 }
-@media (max-width: 480px) {
-  .swc-grid { grid-template-columns: repeat(2, 1fr); }
-  .swc-col:nth-child(3) { display: none; }
+@media (max-width: 700px) {
+  .swc-grid { grid-auto-columns: calc(50% - 0.5px); }
 }
 
 /* ─── CHORE HISTORY ROWS ─── */
@@ -2296,4 +2312,5 @@ body.dark .task-tag.tag-recur {
     padding: 0 16px 8px;
   }
   .swc-col:first-child { border-left: none; padding-left: 4px; }
+  .swc-col.swc-nodate { position: static; }
 }
