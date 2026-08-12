@@ -2513,3 +2513,54 @@ body.dark .task-tag.tag-recur {
 @media (max-width: 480px) {
   .inbox-tray { width: 100%; max-width: 100%; }
 }
+
+/* ─── SEARCH TRAY ─── */
+.search-tray #search-results-wrap { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+
+.search-group-label {
+  padding: 10px 18px 4px;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 18px;
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  background: none;
+  font-family: inherit;
+  font-size: .86rem;
+  color: var(--text-1);
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s;
+}
+.search-row:hover { background: var(--surface-2); }
+.search-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-row-emoji { flex-shrink: 0; font-size: .95rem; }
+.search-row-tag {
+  flex-shrink: 0;
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+/* Due-today nudge bar sits below the timer bar (if both are visible) rather
+   than fighting it for the same sticky position. */
+#global-notify-bar {
+  position: static;
+  background: var(--accent);
+}
+#global-notify-bar .gtb-name { text-decoration: underline; }

@@ -345,6 +345,7 @@ function refreshInboxTray() {
 
 function openInboxTray() {
   if (document.getElementById('inbox-tray')) { closeInboxTray(); return; }
+  closeSearchTray();
 
   const backdrop = document.createElement('div');
   backdrop.id = 'inbox-backdrop';
@@ -387,6 +388,143 @@ function openInboxTray() {
 }
 
 window.refreshInboxTray = refreshInboxTray;
+
+// ─── SEARCH (everything: projects, tasks, todos, chores, habits, shopping) ──
+
+function searchEverything(qRaw) {
+  const q = String(qRaw || '').trim().toLowerCase();
+  if (!q) return null;
+  const has = s => (s || '').toLowerCase().includes(q);
+  const LIMIT = 30;
+  return {
+    projects: DB.get('projects').filter(p => has(p.name)).slice(0, LIMIT),
+    tasks:    DB.get('tasks').filter(t => has(t.title) || has(t.notes)).slice(0, LIMIT),
+    todos:    DB.get('todos').filter(t => has(t.title) || has(t.notes)).slice(0, LIMIT),
+    chores:   DB.get('chores').filter(c => has(c.title)).slice(0, LIMIT),
+    habits:   DB.get('habits').filter(h => has(h.name)).slice(0, LIMIT),
+    shopping: DB.get('shopping').filter(s => has(s.title)).slice(0, LIMIT),
+  };
+}
+
+function closeSearchTray() {
+  document.getElementById('search-backdrop')?.remove();
+  document.getElementById('search-tray')?.remove();
+  document.removeEventListener('keydown', _searchEscHandler);
+}
+function _searchEscHandler(e) { if (e.key === 'Escape') closeSearchTray(); }
+
+function goToTask(id) {
+  const t = DB.get('tasks').find(x => x.id === id);
+  if (!t) return;
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'work';
+  render();
+  openTaskModal(null, t);
+}
+function goToTodo(id) {
+  const t = DB.get('todos').find(x => x.id === id);
+  if (!t) return;
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'personal'; state.personalTab = 'todo'; state.activeChore = null; state.activeHabit = null;
+  render();
+  openTodoModal(t);
+}
+function goToProject() {
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'work'; state.workLayout = 'projects';
+  localStorage.setItem('cc_workLayout', state.workLayout);
+  render();
+}
+function goToChore(id) {
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'personal'; state.personalTab = 'chores'; state.activeChore = id; state.choreHistoryShowAll = false;
+  render();
+}
+function goToHabit(id) {
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'personal'; state.personalTab = 'habits'; state.activeHabit = id; state.habitHistoryShowAll = false;
+  render();
+}
+function goToShopping() {
+  closeSearchTray(); closeInboxTray();
+  state.mode = 'personal'; state.personalTab = 'shopping'; state.activeChore = null; state.activeHabit = null;
+  render();
+}
+
+function searchResultsHTML(results) {
+  if (!results) return '<div class="empty-state" style="padding:28px 16px"><div class="empty-state-icon">🔎</div><p>Search projects, tasks, to-dos, chores, habits, and your shopping list.</p></div>';
+  const groups = [
+    { key: 'projects', label: 'Projects', items: results.projects, render: p =>
+        `<button class="search-row" data-search-project="${p.id}"><span class="project-color-dot" style="background:${escHtml(p.color || '#6366F1')}"></span><span class="search-row-title">${escHtml(p.name)}</span></button>` },
+    { key: 'tasks', label: 'Work tasks', items: results.tasks, render: t =>
+        `<button class="search-row" data-search-task="${t.id}">${priorityDot(t.priority)}<span class="search-row-title">${escHtml(t.title)}</span>${t.done ? '<span class="search-row-tag">done</span>' : ''}</button>` },
+    { key: 'todos', label: 'To-dos', items: results.todos, render: t =>
+        `<button class="search-row" data-search-todo="${t.id}"><span class="search-row-title">${escHtml(t.title)}</span>${t.done ? '<span class="search-row-tag">done</span>' : ''}</button>` },
+    { key: 'chores', label: 'Chores', items: results.chores, render: c =>
+        `<button class="search-row" data-search-chore="${c.id}"><span class="search-row-emoji">${c.emoji || '🧹'}</span><span class="search-row-title">${escHtml(c.title)}</span></button>` },
+    { key: 'habits', label: 'Habits', items: results.habits, render: h =>
+        `<button class="search-row" data-search-habit="${h.id}"><span class="search-row-emoji">${h.emoji || '⭐'}</span><span class="search-row-title">${escHtml(h.name)}</span>${isBadHabit(h) ? '<span class="search-row-tag">bad habit</span>' : ''}</button>` },
+    { key: 'shopping', label: 'Shopping list', items: results.shopping, render: s =>
+        `<button class="search-row" data-search-shopping="${s.id}"><span class="search-row-title">${escHtml(s.title)}</span>${s.done ? '<span class="search-row-tag">done</span>' : ''}</button>` },
+  ];
+  const nonEmpty = groups.filter(g => g.items.length);
+  if (!nonEmpty.length) {
+    return '<div class="empty-state" style="padding:28px 16px"><div class="empty-state-icon">🔎</div><p>No matches.</p></div>';
+  }
+  return nonEmpty.map(g =>
+    `<div class="search-group"><div class="search-group-label">${g.label} (${g.items.length})</div>${g.items.map(g.render).join('')}</div>`
+  ).join('');
+}
+
+function wireSearchResultEvents() {
+  document.querySelectorAll('[data-search-project]').forEach(el => el.onclick = () => goToProject());
+  document.querySelectorAll('[data-search-task]').forEach(el => el.onclick = () => goToTask(el.dataset.searchTask));
+  document.querySelectorAll('[data-search-todo]').forEach(el => el.onclick = () => goToTodo(el.dataset.searchTodo));
+  document.querySelectorAll('[data-search-chore]').forEach(el => el.onclick = () => goToChore(el.dataset.searchChore));
+  document.querySelectorAll('[data-search-habit]').forEach(el => el.onclick = () => goToHabit(el.dataset.searchHabit));
+  document.querySelectorAll('[data-search-shopping]').forEach(el => el.onclick = () => goToShopping());
+}
+
+function openSearchTray() {
+  if (document.getElementById('search-tray')) { closeSearchTray(); return; }
+  closeInboxTray();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'search-backdrop';
+  backdrop.className = 'inbox-backdrop';
+  backdrop.onclick = closeSearchTray;
+  document.body.appendChild(backdrop);
+
+  const tray = document.createElement('div');
+  tray.id = 'search-tray';
+  tray.className = 'inbox-tray search-tray';
+  tray.innerHTML = `
+    <div class="inbox-tray-header">
+      <div class="inbox-tray-title">🔎 Search</div>
+      <button class="modal-close" id="search-close-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="inbox-quickadd">
+      <input class="form-input" id="search-input" placeholder="Search everything…" autocomplete="off" />
+    </div>
+    <div id="search-results-wrap">${searchResultsHTML(null)}</div>
+  `;
+  document.body.appendChild(tray);
+  requestAnimationFrame(() => tray.classList.add('open'));
+
+  document.getElementById('search-close-btn').onclick = closeSearchTray;
+  document.addEventListener('keydown', _searchEscHandler);
+
+  const input = document.getElementById('search-input');
+  input.addEventListener('input', () => {
+    const wrap = document.getElementById('search-results-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = searchResultsHTML(searchEverything(input.value));
+    wireSearchResultEvents();
+  });
+  input.focus();
+}
 
 // ─── GLOBAL TIMER SYSTEM ────────────────────────────────────────
 const TIMER_KEY = 'cc_active_timer';
@@ -2771,7 +2909,7 @@ function openHabitModal(existing) {
 let _habitReminderInterval = null;
 function scheduleHabitReminders() {
   clearInterval(_habitReminderInterval);
-  _habitReminderInterval = setInterval(checkHabitReminders, 60000);
+  _habitReminderInterval = setInterval(() => { checkHabitReminders(); checkTodoDueReminders(); }, 60000);
 }
 function checkHabitReminders() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2783,6 +2921,63 @@ function checkHabitReminders() {
     if (isHabitDoneToday(h)) return;
     new Notification((h.emoji || '⭐') + ' Time for ' + h.name + '!', { body: 'Tap to open CheckCheck.', icon: 'assets/icon-192.png', tag: 'habit-' + h.id });
   });
+}
+
+// To-dos with a reminder time set fire the same way habits do (same setInterval tick).
+function checkTodoDueReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  const todayStr = ldStr(now);
+  DB.get('todos').forEach(t => {
+    if (t.done || !t.reminderTime || t.reminderTime !== timeStr) return;
+    if (!t.dueDate || t.dueDate > todayStr) return; // only nudge once it's actually due
+    new Notification('📌 ' + t.title, { body: 'Due today. Tap to open CheckCheck.', icon: 'assets/icon-192.png', tag: 'todo-' + t.id });
+  });
+}
+
+// ─── DUE-TODAY NUDGE (shown once per day on open) ──────────────────
+
+function dueTodayCount() {
+  const todayStr = ldStr(new Date());
+  const overdueOrToday = d => d && d <= todayStr;
+  const tasks = DB.get('tasks').filter(t => !t.done && overdueOrToday(t.dueDate));
+  const todos = DB.get('todos').filter(t => !t.done && overdueOrToday(t.dueDate));
+  return tasks.length + todos.length;
+}
+
+function showDueTodayNudge() {
+  const count = dueTodayCount();
+  if (count === 0) return;
+  const todayKey = ldStr(new Date());
+  if (localStorage.getItem('cc_due_nudge_date') === todayKey) return; // already nudged today
+  localStorage.setItem('cc_due_nudge_date', todayKey);
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('📌 ' + count + ' item' + (count > 1 ? 's' : '') + ' due', {
+      body: 'Tap to open CheckCheck and review your day.',
+      icon: 'assets/icon-192.png',
+      tag: 'due-nudge',
+    });
+  }
+
+  const bar = document.getElementById('global-notify-bar');
+  if (!bar) return;
+  bar.className = 'global-timer-bar';
+  bar.style.display = 'flex';
+  bar.innerHTML =
+    '<span class="gtb-icon">📌</span>' +
+    '<span class="gtb-name" id="due-nudge-link" style="cursor:pointer;text-decoration:underline">' + count + ' item' + (count > 1 ? 's' : '') + ' due — tap to review</span>' +
+    '<button class="gtb-stop" id="due-nudge-dismiss">Dismiss</button>';
+  document.getElementById('due-nudge-dismiss').onclick = () => { bar.style.display = 'none'; };
+  document.getElementById('due-nudge-link').onclick = () => {
+    bar.style.display = 'none';
+    state.mode = 'work';
+    state.workLayout = 'calendar';
+    localStorage.setItem('cc_workLayout', state.workLayout);
+    state.activeProject = null;
+    render();
+  };
 }
 function requestHabitNotifications() {
   if (!('Notification' in window)) return;
@@ -3424,12 +3619,14 @@ function _appInit() {
       state.activeProject = null;
       state.activeChore   = null;
       closeInboxTray();
+      closeSearchTray();
       render();
     };
   });
 
   document.getElementById('data-btn').onclick = openDataModal;
   document.getElementById('inbox-btn').onclick = openInboxTray;
+  document.getElementById('search-btn').onclick = openSearchTray;
 
   document.getElementById('modal-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeModal();
@@ -3452,10 +3649,12 @@ function _appInit() {
         if (Date.now() - t.startedAt >= t.durationMs) ringGlobalTimer(t.choreId);
         else { startGlobalTimerTick(); updateTimerBar(); }
       }
+      showDueTodayNudge(); // no-ops if already shown today
     }
   });
 
   render();
+  setTimeout(showDueTodayNudge, 800); // small delay so it doesn't fight the initial paint
 }
 
 function init() {
