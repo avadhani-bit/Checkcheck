@@ -47,6 +47,13 @@ async function fsPull() {
       if (local.length > 0) fsPush(_k2, local);
     }
   }
+
+  // Reminders set on another device arrive HERE, and this function writes to
+  // localStorage directly rather than through DB.set — so the reschedule hook
+  // on DB.set never sees them. Without this line, a reminder you set on the
+  // web would not be scheduled on the phone until some unrelated edit happened
+  // to trigger a rebuild. Safe on web: CCNotify is a no-op there.
+  if (window.CCNotify && window.CCNotify.available) window.CCNotify.rescheduleAll();
 }
 // ─────────────────────────────────────────────────────────────────
 
