@@ -1999,7 +1999,10 @@ body.dark .task-tag.tag-recur {
 .habit-streak-badge { color: var(--text-2); font-weight: 600; }
 .habit-no-streak { color: var(--text-3); }
 .habit-week-progress { color: var(--accent); font-weight: 600; font-size: .75rem; }
+.habit-slip-badge { color: var(--red); font-weight: 600; }
 .habit-rate { font-weight: 600; }
+
+.habits-clean-pill { color: var(--text-2); }
 
 /* Week circles for Nx/week habits */
 .habit-week-circle {
