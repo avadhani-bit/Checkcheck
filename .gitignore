@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Capacitor build output (www is generated from the root web files)
+www/
+
+# Android build artifacts
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/.idea/
+android/app/release/
+android/capacitor-cordova-android-plugins/
+
+# Signing — NEVER commit these
+*.jks
+*.keystore
+keystore.properties
+
+# Firebase native config (contains project keys; safe-ish but keep out of history)
+# Comment this line out if you'd rather version it.
+android/app/google-services.json
+
+# OS
+.DS_Store
+Thumbs.db

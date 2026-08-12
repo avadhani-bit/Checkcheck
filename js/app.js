@@ -95,13 +95,31 @@ function escHtml(str) {
 
 // ─── STORAGE (localStorage) ───────────────────────────────────────
 
+/* Any write to one of these collections can change what should be scheduled —
+   a chore marked done, a due date moved, a reminder switched off. Rather than
+   remembering to reschedule at twenty different call sites, hook the single
+   write path. Debounced, because ticking off five items shouldn't rebuild the
+   schedule five times. Does nothing on the web (CCNotify is a no-op there). */
+let _notifyTimer = null;
+const NOTIFY_KEYS = ['chores', 'todos', 'tasks', 'habits'];
+function _notifyDirty(k) {
+  if (!window.CCNotify || !window.CCNotify.available) return;
+  if (NOTIFY_KEYS.indexOf(k) === -1) return;
+  clearTimeout(_notifyTimer);
+  _notifyTimer = setTimeout(() => { CCNotify.rescheduleAll(); }, 1200);
+}
+
 const DB = {
   _key: k => `cc_${k}`,
   get: k => {
     try { return JSON.parse(localStorage.getItem(DB._key(k)) || '[]'); }
     catch { return []; }
   },
-  set: (k, data) => { localStorage.setItem(DB._key(k), JSON.stringify(data)); fsPush(k, data); },
+  set: (k, data) => {
+    localStorage.setItem(DB._key(k), JSON.stringify(data));
+    fsPush(k, data);
+    _notifyDirty(k);
+  },
   add:    (k, item)      => { const d = DB.get(k); d.push(item); DB.set(k, d); },
   update: (k, id, patch) => { DB.set(k, DB.get(k).map(i => i.id === id ? { ...i, ...patch } : i)); },
   remove: (k, id)        => DB.set(k, DB.get(k).filter(i => i.id !== id)),
@@ -2980,6 +2998,10 @@ function showDueTodayNudge() {
   };
 }
 function requestHabitNotifications() {
+  // On Android the OS-scheduled reminders in js/notify.js do this properly —
+  // they fire with the app closed. This browser polling loop only works while
+  // the page is open, and running both would double every reminder.
+  if (window.CC_NATIVE) return;
   if (!('Notification' in window)) return;
   if (Notification.permission === 'default') {
     Notification.requestPermission().then(p => { if (p === 'granted') scheduleHabitReminders(); });
@@ -3209,6 +3231,14 @@ function openTaskModal(project, existing) {
     <div class="form-group">
       <label class="form-label">Due date <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-3)">(optional)</span></label>
       <input class="form-input" id="task-due" type="date" value="${existing?.dueDate || ''}" />
+      <div class="reminder-row" style="margin-top:8px">
+        <label>
+          <input type="checkbox" id="task-remind-on" ${existing?.reminderTime ? 'checked' : ''} />
+          Remind me
+        </label>
+        <input type="time" id="task-remind-at" value="${existing?.reminderTime || '09:00'}" ${existing?.reminderTime ? '' : 'disabled'} />
+      </div>
+      <div class="reminder-hint">Fires on the due date. Notifications are delivered on your phone.</div>
     </div>
     <div class="form-group">
       <label class="form-label">Repeats</label>
@@ -3311,10 +3341,23 @@ function openTaskModal(project, existing) {
   document.getElementById('subtask-add-btn').onclick = addModalSubtask;
   document.getElementById('subtask-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addModalSubtask(); } });
 
+  // Reminder toggle: the time input is meaningless unless the box is ticked,
+  // and ticking it is the natural moment to ask for notification permission —
+  // not on first launch, when the user has no idea what we'd notify about.
+  const remindOn = document.getElementById('task-remind-on');
+  const remindAt = document.getElementById('task-remind-at');
+  if (remindOn && remindAt) {
+    remindOn.onchange = () => {
+      remindAt.disabled = !remindOn.checked;
+      if (remindOn.checked && window.CCNotify) CCNotify.ensurePermission(true);
+    };
+  }
+
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save').onclick = () => {
     const title   = document.getElementById('task-name').value.trim();
     const dueDate = document.getElementById('task-due').value || null;
+    const reminderTime = (remindOn && remindOn.checked && remindAt.value) ? remindAt.value : null;
     const recurrenceVal = document.getElementById('task-recurrence').value;
     const recurrence = recurrenceVal === 'none' ? null : recurrenceVal;
     const notes   = document.getElementById('task-notes').value.trim() || null;
@@ -3322,8 +3365,8 @@ function openTaskModal(project, existing) {
     const subtasks = _modalSubtasks;
     const priority = (document.querySelector('input[name="task-priority"]:checked') || {}).value || null;
     if (!title) { document.getElementById('task-name').focus(); return; }
-    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, recurrence, notes, tag, subtasks, priority: priority || null });
-    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, recurrence, notes, tag, subtasks, priority: priority || null, completedAt: null, createdAt: Date.now() });
+    if (isEdit) DB.update('tasks', existing.id, { title, dueDate, recurrence, notes, tag, subtasks, priority: priority || null, reminderTime });
+    else DB.add('tasks', { id: uid(), projectId: proj.id, title, done: false, dueDate, recurrence, notes, tag, subtasks, priority: priority || null, reminderTime, completedAt: null, createdAt: Date.now() });
     closeModal();
     render();
   };
@@ -3662,6 +3705,22 @@ function init() {
   document.getElementById('auth-gate').style.display = 'none';
   document.getElementById('app').style.display = 'none';
 
+  // ── PHASE 1 AUTH BYPASS ──────────────────────────────────────────
+  // Controlled by window.CC_BYPASS_AUTH in js/platform.js.
+  // Boots straight to the UI on local data. No Firestore sync at all
+  // (fsPush/fsPull both no-op because _fbUser stays null).
+  if (window.CC_BYPASS_AUTH) {
+    document.getElementById('app').style.display = '';
+    var warn = document.createElement('div');
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#dc2626;color:#fff;' +
+      'font:600 11px/1.6 system-ui,sans-serif;text-align:center;padding:3px 8px;letter-spacing:.02em';
+    warn.textContent = 'AUTH BYPASS ON — local data only, nothing is syncing';
+    document.body.appendChild(warn);
+    _appInitDone = true;
+    _appInit();
+    return; // never register onAuthStateChanged in bypass mode
+  }
+
   // Google sign-in — popup-first (works on all modern browsers including mobile Chrome/Opera).
   // Redirect is only used as fallback if popup is explicitly blocked.
   const signinBtn = document.getElementById('google-signin-btn');
@@ -3676,18 +3735,64 @@ function init() {
     signinBtn.style.opacity = '';
   }
 
+  // ── NATIVE (Android) SIGN-IN ─────────────────────────────────────
+  // Google blocks OAuth popups inside embedded WebViews, so on device we
+  // hand off to the native Google Sign-In SDK via the Capacitor plugin.
+  //
+  // The plugin authenticates the NATIVE layer only. Firestore in this app
+  // is the JS SDK, which knows nothing about that — so we must take the
+  // returned credential and sign in on the JS layer too. Skip that second
+  // step and every Firestore read returns permission-denied.
+  async function signInNative() {
+    const plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
+    const FirebaseAuthentication = plugins.FirebaseAuthentication;
+    if (!FirebaseAuthentication) {
+      showSigninError('Native auth plugin missing. Run: npm run sync');
+      return;
+    }
+
+    const result = await FirebaseAuthentication.signInWithGoogle();
+    const c = result && result.credential;
+    if (!c || !c.idToken) {
+      throw new Error('No idToken returned. Check the SHA-1 fingerprint in Firebase.');
+    }
+
+    // STEP 2 — the one everybody forgets.
+    const cred = firebase.auth.GoogleAuthProvider.credential(c.idToken, c.accessToken || null);
+    await _fbAuth.signInWithCredential(cred);
+    // onAuthStateChanged now fires and the app boots as normal.
+  }
+
+  // ── WEB SIGN-IN ──────────────────────────────────────────────────
+  function signInWeb() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    return _fbAuth.signInWithPopup(provider).catch(e => {
+      if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+        // Popup blocked — fall back to redirect
+        return _fbAuth.signInWithRedirect(provider);
+      }
+      throw e;
+    });
+  }
+
   signinBtn.onclick = () => {
     signinBtn.disabled = true;
     signinBtn.style.opacity = '0.6';
     signinErr.style.display = 'none';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    _fbAuth.signInWithPopup(provider).catch(e => {
-      if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
-        // Popup blocked — fall back to redirect
-        _fbAuth.signInWithRedirect(provider);
-      } else {
-        showSigninError('Sign-in failed: ' + (e.message || e.code));
+
+    const attempt = window.CC_NATIVE ? signInNative() : signInWeb();
+
+    Promise.resolve(attempt).catch(e => {
+      const code = (e && (e.code || e.message)) || String(e);
+      // The native plugin throws a bare "canceled"/"12501" when the user
+      // dismisses the Google account chooser. That's not an error worth showing.
+      if (/cancel|12501|closed-by-user/i.test(code)) {
+        signinBtn.disabled = false;
+        signinBtn.style.opacity = '';
+        return;
       }
+      console.error('[CheckCheck] sign-in failed:', e);
+      showSigninError('Sign-in failed: ' + code);
     });
   };
 
@@ -3728,8 +3833,20 @@ function init() {
     dropdown.style.top  = (btnRect.bottom + 6) + 'px';
     dropdown.style.left = left + 'px';
     document.getElementById('dropdown-reports').onclick = (e) => { e.stopPropagation(); dropdown.remove(); state.mode = 'work'; state.workView = 'reports'; render(); };
-    document.getElementById('signout-btn').onclick = () => {
-      _fbAuth.signOut().then(() => window.location.reload());
+    document.getElementById('signout-btn').onclick = async () => {
+      // On device there are TWO sessions to end: the JS one and the native
+      // one. Sign out of JS only and the next sign-in silently reuses the
+      // cached native Google account — you can never switch accounts.
+      try {
+        if (window.CC_NATIVE) {
+          const FA = (window.Capacitor.Plugins || {}).FirebaseAuthentication;
+          if (FA) await FA.signOut();
+        }
+      } catch (e) {
+        console.warn('[CheckCheck] native signOut failed:', e);
+      }
+      try { await _fbAuth.signOut(); } catch (e) { console.warn(e); }
+      window.location.reload();
     };
     // Close on outside click
     setTimeout(() => {
