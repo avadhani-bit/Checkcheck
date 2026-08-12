@@ -1,7 +1,40 @@
 # CheckCheck — Project Context
 
 **Paste this file at the start of any new session so the assistant has full context.**
-Last updated: 2026-08-12 · Phases 0–2 complete (code side).
+Last updated: 2026-08-12 · **Phases 0–4 complete. The app works on device.**
+
+---
+
+## 0. Start here
+
+**Where things stand:** CheckCheck is installed and working on the phone as a debug
+build. Google Sign-In works, real data syncs, reminders fire with the app closed,
+the icon and splash are correct, and the hardware back button behaves.
+
+**Next up: Phase 5 — a signed release APK.** Currently the app is a *debug* build:
+fine for you, but it's signed with a throwaway key and can't be sensibly given to
+anyone else. Phase 5 produces a properly signed APK you can hand to family.
+
+Phase 5, in order:
+
+1. Android Studio → **Build → Generate Signed App Bundle / APK → APK**
+2. Create a new keystore. Strong password.
+3. **Back up the `.jks` file** to two places (not just the repo — it's gitignored
+   for good reason). **Save the password and key alias in a password manager.**
+   Lose either and you can never update this app on the Play Store, ever.
+4. Build the release APK.
+5. Get the **release** SHA-1: `cd android && ./gradlew signingReport` — it's a
+   *different key* from debug, so it's a different fingerprint.
+6. Add that release SHA-1 to Firebase Console alongside the debug one.
+7. **Re-download `google-services.json`** into `android/app/` — it must contain
+   both fingerprints, or sign-in works in debug and fails in release.
+8. Install the release APK on the phone and verify sign-in still works.
+
+Budget about 45 minutes. Step 7 is the one people skip; see §8 for the symptom.
+
+**Before starting, confirm:** `git status` is clean and the `fix-16-reminder-sync`
+PR was merged. If `git log --oneline -3` doesn't show "Reschedule reminders after
+a Firestore pull", that work is unpushed.
 
 ---
 
@@ -281,13 +314,42 @@ require nothing new for Android.
 
 | Phase | Status |
 |---|---|
-| 0 — Toolchain | Node ✅ · Android Studio ✅ · SDK 36 + device pairing pending |
-| 1 — First APK | Code complete. Needs a build on the Mac. |
-| 2 — Google Sign-In | Code complete. Needs SHA-1 + `google-services.json`. |
-| 3 — Native polish | Code complete ✅ (back button, status bar, keyboard, splash, icons) |
-| 4 — Local notifications | Code complete ✅ (per-item opt-in reminders) |
-| 5 — Signed release APK | Not started. **Back up the keystore and its password.** |
-| 6 — Play Store | Deferred. 12 testers × 14 days gate applies. |
+| 0 — Toolchain | ✅ Node, Android Studio, SDK 36, phone paired (SM-S931U) |
+| 1 — First APK | ✅ Installed and launching on device |
+| 2 — Google Sign-In | ✅ Native sign-in works, real data loads |
+| 3 — Native polish | ✅ Back button, status bar, keyboard, splash, icons |
+| 4 — Local notifications | ✅ Per-item opt-in reminders, verified firing on device |
+| 5 — Signed release APK | ⬅ **next** — see §0 |
+| 6 — Play Store | Deferred. 12 testers × 14 continuous days gate applies. |
+
+### What was done on 2026-08-12
+
+Everything above, in one session. Notable decisions and discoveries:
+
+- **The app uses the Firebase compat SDK**, so all auth code is written in that
+  style. Modular v9+ snippets need translating.
+- **Firebase is vendored into `vendor/`** rather than loaded from gstatic. A CDN
+  script tag would leave the APK dead on launch with no network.
+- **`google-services.json` needed a second download.** The first one had no
+  Android OAuth client because the SHA-1 hadn't been registered yet. Symptom
+  would have been sign-in failing on device only.
+- **Two bugs found and fixed after the app was "working":**
+  - `fsPull()` bypassed `DB.set`, so reminders set on another device synced but
+    were never scheduled on the phone.
+  - `--` inside an XML comment broke `mergeDebugResources`.
+- **Habits get a 7-day scheduling horizon** while everything else gets 14, because
+  daily habits would otherwise consume the whole 60-alarm budget.
+
+### Known limitations (accepted, not bugs)
+
+- **Sync is pull-on-launch, push-on-change** — not live. Editing the same
+  collection on two devices at once loses one side's changes, because each
+  collection is written as one whole array. Fixable later with Firestore
+  realtime listeners.
+- **Reminders need the app opened** at least once between setting one and its
+  fire time, and they run out after 14 days of not opening the app.
+- **`js/firebase.js` is an empty leftover.** `render.js`, `ui.js`, `state.js`
+  exist but aren't loaded by `index.html`.
 
 ---
 
