@@ -1,0 +1,14 @@
+{
+  "appId": "com.avadhani.checkcheck",
+  "appName": "CheckCheck",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
+}

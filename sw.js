@@ -1,10 +1,25 @@
-/* CheckCheck — Service Worker v13 */
-const CACHE = 'checkcheck-v13';
+/* CheckCheck — Service Worker v14
+   ----------------------------------------------------------------
+   BUMP THIS VERSION whenever you change any precached file, or
+   returning visitors keep the old copy. The number is the only thing
+   that tells the browser this worker is different.
+
+   Note: this file is only used by the WEB app. Inside the Android APK
+   registration is skipped (see index.html) — the assets are already
+   local there, and a second cache layer would only serve stale code. */
+const CACHE = 'checkcheck-v14';
 const PRECACHE = [
   './index.html',
   './css/app.css',
+  './css/native.css',
+  './js/platform.js',
   './js/app.js',
   './js/nlp.js',
+  './js/notify.js',
+  './js/native.js',
+  './vendor/firebase/firebase-app-compat.js',
+  './vendor/firebase/firebase-auth-compat.js',
+  './vendor/firebase/firebase-firestore-compat.js',
   './manifest.json',
   './assets/icon-192.png',
   './assets/icon-512.png',

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- CheckCheck accent. This is the adaptive icon's background layer AND
+         the Android 12+ splash background. Keep in sync with the accent
+         custom property in css/app.css and theme_color in manifest.json. -->
+    <color name="ic_launcher_background">#6366F1</color>
+</resources>

@@ -1,0 +1,126 @@
+/* ================================================================
+   CheckCheck — native.css
+   ----------------------------------------------------------------
+   Rules that only apply inside the Android app. Every selector is
+   scoped to .cc-native on <html>, which js/platform.js adds. In a
+   browser none of this matches, so the PWA is untouched.
+
+   Goal: remove the small tells that give away "this is a website in
+   a box" — text selection, blue tap flashes, rubber-band scrolling.
+================================================================ */
+
+/* ── No text selection ───────────────────────────────────────────
+   Long-pressing text in a native app shouldn't pop up a
+   Copy/Share/Web Search bar. Inputs are excluded — you still need
+   to select and edit there. */
+.cc-native body,
+.cc-native button,
+.cc-native .card,
+.cc-native .header,
+.cc-native label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.cc-native input,
+.cc-native textarea,
+.cc-native [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ── No blue flash on tap ────────────────────────────────────────
+   Android WebView paints a translucent highlight on every tap.
+   Native apps don't do this; they use the element's own :active state. */
+.cc-native * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── No rubber-band overscroll / pull-to-refresh ─────────────────
+   Dragging past the top of a native list should stop dead, not
+   bounce and reveal the page background — and definitely not
+   trigger a browser refresh. */
+.cc-native html,
+.cc-native body {
+  overscroll-behavior: none;
+  overflow-x: hidden;
+}
+
+/* ── Keyboard-aware spacing ──────────────────────────────────────
+   --keyboard-height is set by js/native.js as the keyboard opens
+   and closes. Keeps the last item in a list reachable above it. */
+.cc-native.keyboard-open .main,
+.cc-native body.keyboard-open .main {
+  padding-bottom: calc(24px + var(--keyboard-height, 0px));
+}
+
+/* ── Touch feedback ──────────────────────────────────────────────
+   With the tap highlight gone, buttons need their own press state
+   or the app feels dead. A quick scale-down reads as physical. */
+.cc-native button:active,
+.cc-native .card:active {
+  transform: scale(0.985);
+  transition: transform .06s ease;
+}
+
+/* ── Momentum scrolling ─────────────────────────────────────────── */
+.cc-native .main,
+.cc-native .inbox-tray,
+.cc-native .modal {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Reminder toggle (Phase 4) ───────────────────────────────────
+   Shown in add/edit forms. Visible on web too — you can set a
+   reminder from your laptop; the phone is what delivers it. */
+.reminder-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.reminder-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--text-1);
+  cursor: pointer;
+  margin: 0;
+}
+
+.reminder-row input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.reminder-row input[type="time"] {
+  margin-left: auto;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: .82rem;
+}
+
+.reminder-row input[type="time"]:disabled {
+  opacity: .4;
+}
+
+.reminder-hint {
+  font-size: .72rem;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.4;
+}
