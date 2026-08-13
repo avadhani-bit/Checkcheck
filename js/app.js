@@ -662,6 +662,115 @@ function updateTimerBar() {
   document.getElementById('gtb-stop').onclick = stopChoreTimer;
 }
 
+/* ─── EISENHOWER MATRIX ───────────────────────────────────────────
+   Sorts open work tasks into the classic four quadrants automatically,
+   derived from data you already enter — no extra tagging.
+
+     URGENT     = overdue, due today, or due within URGENT_DAYS
+     IMPORTANT  = priority is High
+
+   Deliberately strict on both axes. A matrix where everything lands in
+   "Do first" tells you nothing; the value is in how small that box is.
+   Change the two constants below to loosen it.
+
+   Note the bottom-right quadrant is called Backlog, not the classic
+   "Eliminate". A task with no due date and no priority usually means
+   "not triaged yet", not "worthless" — and calling it Eliminate makes
+   the view feel accusatory rather than useful. */
+
+const URGENT_DAYS = 2;
+
+function isTaskUrgent(t, todayStr) {
+  if (!t.dueDate) return false;
+  const today = todayStr || ldStr(new Date());
+  if (t.dueDate <= today) return true;              // overdue or due today
+  const limit = new Date();
+  limit.setHours(0, 0, 0, 0);
+  limit.setDate(limit.getDate() + URGENT_DAYS);
+  return t.dueDate <= ldStr(limit);
+}
+
+function isTaskImportant(t) {
+  return t.priority === 'high';
+}
+
+const QUADRANTS = [
+  { key: 'do',       title: 'Do first',  sub: 'Urgent + important',        color: '#EF4444', urgent: true,  important: true  },
+  { key: 'schedule', title: 'Schedule',  sub: 'Important, not urgent',     color: '#6366F1', urgent: false, important: true  },
+  { key: 'delegate', title: 'Delegate',  sub: 'Urgent, not important',     color: '#F59E0B', urgent: true,  important: false },
+  { key: 'backlog',  title: 'Backlog',   sub: 'Neither — triage when you can', color: '#9CA3AF', urgent: false, important: false },
+];
+
+/* Pure function: tasks in, {quadrantKey: [tasks]} out. Kept separate
+   from rendering so the logic can be tested without a DOM. */
+function classifyTasks(tasks) {
+  const today = ldStr(new Date());
+  const out = { do: [], schedule: [], delegate: [], backlog: [] };
+  tasks.forEach(t => {
+    if (t.done) return;
+    const u = isTaskUrgent(t, today);
+    const i = isTaskImportant(t);
+    const q = (u && i) ? 'do' : (i ? 'schedule' : (u ? 'delegate' : 'backlog'));
+    out[q].push(t);
+  });
+  // Within a quadrant: soonest due date first, undated last, then priority.
+  const rank = { high: 0, medium: 1, low: 2 };
+  Object.keys(out).forEach(k => {
+    out[k].sort((a, b) => {
+      if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
+      return (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3);
+    });
+  });
+  return out;
+}
+
+function matrixHTML(projects, allTasks) {
+  const buckets = classifyTasks(allTasks);
+  const projName = id => (projects.find(p => p.id === id) || {}).name || '';
+
+  const cell = q => {
+    const items = buckets[q.key];
+    return `
+      <div class="eis-quad eis-${q.key}" style="--quad-color:${q.color}">
+        <div class="eis-head">
+          <div class="eis-title">${q.title}</div>
+          <div class="eis-count">${items.length}</div>
+        </div>
+        <div class="eis-sub">${q.sub}</div>
+        <div class="eis-body">
+          ${items.length
+            ? items.map(t => {
+                const due = fmt.dueLabel(t.dueDate);
+                const subs = t.subtasks || [];
+                const subDone = subs.filter(s => s.done).length;
+                return `
+                  <div class="eis-task">
+                    <div class="eis-task-check task-check" data-check-id="${t.id}"></div>
+                    <div class="eis-task-body" data-edit-task="${t.id}">
+                      <div class="eis-task-title">${priorityDot(t.priority)}${escHtml(t.title)}</div>
+                      <div class="eis-task-meta">
+                        <span class="eis-proj">${escHtml(projName(t.projectId))}</span>
+                        ${due ? `<span class="task-due ${due.cls}">${due.text}</span>` : ''}
+                        ${subs.length ? `<span class="subtask-count">${subDone}/${subs.length}</span>` : ''}
+                      </div>
+                    </div>
+                  </div>`;
+              }).join('')
+            : '<div class="eis-empty">Nothing here</div>'}
+        </div>
+      </div>`;
+  };
+
+  return `
+    <div class="eis-legend">
+      Urgent = due within ${URGENT_DAYS} days (or overdue) · Important = high priority.
+      Set a due date and priority on a task to move it.
+    </div>
+    <div class="eis-grid">${QUADRANTS.map(cell).join('')}</div>`;
+}
+
 // ─── WORK VIEW (expanded cards with inline tasks) ─────────────────
 
 function renderWork() {
@@ -677,6 +786,7 @@ function renderWork() {
         <button class="work-tab ${state.workLayout === 'calendar' ? 'active' : ''}" data-work-layout="calendar">Calendar</button>
         <button class="work-tab ${state.workLayout === 'hybrid'   ? 'active' : ''}" data-work-layout="hybrid">Hybrid</button>
         <button class="work-tab ${state.workLayout === 'projects' ? 'active' : ''}" data-work-layout="projects">Projects</button>
+        <button class="work-tab ${state.workLayout === 'matrix'   ? 'active' : ''}" data-work-layout="matrix">Matrix</button>
       </div>
       <button class="add-btn" id="btn-add-project">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -686,10 +796,12 @@ function renderWork() {
 
     ${projects.length === 0
       ? `<div class="empty-state"><div class="empty-state-icon">📁</div><p>No projects yet.<br>Hit <strong>New Project</strong> to get started.</p></div>`
-      : `${state.workLayout !== 'projects' ? workSummaryHTML(projects, allTasks) : ''}
-         ${state.workLayout !== 'calendar'
-            ? `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>`
-            : ''}`}
+      : state.workLayout === 'matrix'
+        ? matrixHTML(projects, allTasks)
+        : `${state.workLayout !== 'projects' ? workSummaryHTML(projects, allTasks) : ''}
+           ${state.workLayout !== 'calendar'
+              ? `<div class="project-board">${projects.map(p => expandedProjectCard(p, allTasks)).join('')}</div>`
+              : ''}`}
   `;
 
   document.querySelectorAll('[data-work-view]').forEach(btn => {
@@ -1099,7 +1211,7 @@ function workTaskRow(t) {
     ? `<span class="subtask-count" data-subtask-toggle="${t.id}" title="Show subtasks">${subDone}/${subs.length}</span>`
     : '';
   const subList = subs.length
-    ? `<div class="subtask-list" id="stlist-${t.id}" style="display:none">` +
+    ? `<div class="subtask-list" id="stlist-${t.id}" style="${subtaskListStyle()}">` +
       subs.map(s => `<div class="subtask-row"><label class="subtask-label"><input type="checkbox" class="subtask-cb" data-task-id="${t.id}" data-sub-id="${s.id}" ${s.done ? 'checked' : ''} /><span class="${s.done ? 'subtask-done' : ''}">${escHtml(s.title)}</span></label></div>`).join('') +
       '</div>'
     : '';
@@ -1469,6 +1581,26 @@ function completeTaskWithRecur(taskId) {
   }
 }
 
+/* ─── SUBTASK VISIBILITY ──────────────────────────────────────────
+   Subtasks used to be collapsed behind the "2/5" badge. They're now
+   expanded by default, with a preference to collapse them again for
+   people who want a denser list.
+
+   Stored in localStorage rather than Firestore: it's a display
+   preference, and you may reasonably want subtasks expanded on a big
+   desktop screen and collapsed on a phone. Syncing it would fight you.
+
+   The per-item badge still toggles an individual task either way. */
+function showSubtasksPref() {
+  return localStorage.getItem('cc_showSubtasks') !== '0';   // default ON
+}
+function setShowSubtasksPref(on) {
+  localStorage.setItem('cc_showSubtasks', on ? '1' : '0');
+}
+function subtaskListStyle() {
+  return showSubtasksPref() ? '' : 'display:none';
+}
+
 const PRIORITIES = [
   { key: 'high',   label: '↑ High',   color: '#EF4444' },
   { key: 'medium', label: '→ Medium', color: '#F59E0B' },
@@ -1488,7 +1620,7 @@ function todoRow(t) {
     ? `<span class="subtask-count" data-todo-subtask-toggle="${t.id}" title="Show subtasks">${subDone}/${subs.length}</span>`
     : '';
   const subList = subs.length
-    ? `<div class="subtask-list" id="stlist-${t.id}" style="display:none">` +
+    ? `<div class="subtask-list" id="stlist-${t.id}" style="${subtaskListStyle()}">` +
       subs.map(s => `<div class="subtask-row"><label class="subtask-label"><input type="checkbox" class="subtask-cb-todo" data-todo-id="${t.id}" data-sub-id="${s.id}" ${s.done ? 'checked' : ''} /><span class="${s.done ? 'subtask-done' : ''}">${escHtml(s.title)}</span></label></div>`).join('') +
       '</div>'
     : '';
@@ -3831,6 +3963,10 @@ function init() {
         '</div>' +
       '</div>' +
       '<button id="dropdown-reports" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:none;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:2px">\uD83D\uDCCB Reports</button>' +
+      '<label style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border-radius:8px;color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;margin-bottom:6px">' +
+        '<input type="checkbox" id="dropdown-subtasks" ' + (showSubtasksPref() ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer" />' +
+        '<span>Show subtasks</span>' +
+      '</label>' +
       '<button id="signout-btn" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-1);font-size:.85rem;font-weight:500;cursor:pointer;text-align:left;font-family:inherit">Sign out</button>';
     document.body.appendChild(dropdown);
     // Position below the button, aligned to its right edge
@@ -3840,6 +3976,9 @@ function init() {
     dropdown.style.top  = (btnRect.bottom + 6) + 'px';
     dropdown.style.left = left + 'px';
     document.getElementById('dropdown-reports').onclick = (e) => { e.stopPropagation(); dropdown.remove(); state.mode = 'work'; state.workView = 'reports'; render(); };
+    const subCb = document.getElementById('dropdown-subtasks');
+    subCb.onclick = (e) => e.stopPropagation();
+    subCb.onchange = () => { setShowSubtasksPref(subCb.checked); render(); };
     document.getElementById('signout-btn').onclick = async () => {
       // On device there are TWO sessions to end: the JS one and the native
       // one. Sign out of JS only and the next sign-in silently reuses the

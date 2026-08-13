@@ -72,6 +72,147 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ================================================================
+   EISENHOWER MATRIX
+   Not native-specific — lives here only because app.css is already
+   2000+ lines. Works identically on web and in the app.
+================================================================ */
+
+.eis-legend {
+  font-size: .78rem;
+  color: var(--text-3);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.eis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.eis-quad {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* The colour bar is the only thing distinguishing quadrants. Tinting
+     whole cells would make the busiest one shout loudest, which is the
+     opposite of what the matrix is for. */
+  border-top: 3px solid var(--quad-color);
+  padding: 14px 14px 10px;
+  min-height: 150px;
+}
+
+.eis-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eis-title {
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.eis-count {
+  margin-left: auto;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: var(--quad-color);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.eis-sub {
+  font-size: .74rem;
+  color: var(--text-3);
+  margin: 2px 0 10px;
+}
+
+.eis-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eis-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.eis-task:hover {
+  background: var(--surface-2);
+}
+
+.eis-task-check {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.eis-task-body {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.eis-task-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .87rem;
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.35;
+}
+
+.eis-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.eis-proj {
+  font-size: .72rem;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.eis-empty {
+  font-size: .78rem;
+  color: var(--text-3);
+  padding: 10px 4px;
+  font-style: italic;
+}
+
+/* Single column on phones. A 2x2 grid at 390px wide gives you four
+   unreadable slivers — stacking keeps each quadrant legible, and the
+   Do first / Schedule / Delegate / Backlog order is already the
+   priority order you'd want to read top to bottom. */
+@media (max-width: 768px) {
+  .eis-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .eis-quad {
+    min-height: 0;
+  }
+}
+
 /* ── Reminder toggle (Phase 4) ───────────────────────────────────
    Shown in add/edit forms. Visible on web too — you can set a
    reminder from your laptop; the phone is what delivers it. */
