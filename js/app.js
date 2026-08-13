@@ -972,9 +972,11 @@ function renderWork() {
       if (!task) return;
       const subs = (task.subtasks || []).map(s => s.id === cb.dataset.subId ? { ...s, done: cb.checked } : s);
       DB.update('tasks', task.id, { subtasks: subs });
-      // update label style without full re-render
+      // Update in place rather than re-rendering, so the list doesn't rebuild
+      // under your finger. Both the strikethrough AND the count badge.
       const span = cb.nextElementSibling;
       if (span) span.className = cb.checked ? 'subtask-done' : '';
+      updateSubtaskBadge('tasks', task.id, subs);
     };
   });
 
@@ -1548,6 +1550,7 @@ function renderTodoPanel() {
       DB.update('todos', todo.id, { subtasks: subs });
       const span = cb.nextElementSibling;
       if (span) span.className = cb.checked ? 'subtask-done' : '';
+      updateSubtaskBadge('todos', todo.id, subs);
     };
   });
 }
@@ -1599,6 +1602,21 @@ function setShowSubtasksPref(on) {
 }
 function subtaskListStyle() {
   return showSubtasksPref() ? '' : 'display:none';
+}
+
+/* Ticking a subtask updates the data but deliberately does NOT re-render —
+   a full re-render would rebuild the list under your finger and lose scroll
+   position mid-tick. The cost is that the "3/5" badge would go stale, which
+   it silently did until this existed. So: patch the badge in place.
+
+   querySelectorAll, not getElementById, because in the Hybrid layout the same
+   task appears twice (week summary + project board) and both badges need it. */
+function updateSubtaskBadge(kind, itemId, subs) {
+  const attr = kind === 'todos' ? 'data-todo-subtask-toggle' : 'data-subtask-toggle';
+  const done = subs.filter(s => s.done).length;
+  document.querySelectorAll('[' + attr + '="' + itemId + '"]').forEach(el => {
+    el.textContent = done + '/' + subs.length;
+  });
 }
 
 const PRIORITIES = [
