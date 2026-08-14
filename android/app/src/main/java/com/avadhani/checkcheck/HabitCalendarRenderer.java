@@ -29,9 +29,9 @@ import java.util.Set;
 public class HabitCalendarRenderer {
 
     private static final int DONE       = Color.parseColor("#6366F1");
-    private static final int DONE_LIGHT = Color.parseColor("#C7D2FE");
-    private static final int EMPTY      = Color.parseColor("#EEF0F4");
-    private static final int OFF_TARGET = Color.parseColor("#F8F9FC");
+    private static final int EMPTY      = Color.parseColor("#E7E9EF");   // missed
+    private static final int OFF_TARGET = Color.parseColor("#F1F2F6");   // rest day
+    private static final int FUTURE     = Color.parseColor("#F5F6FA");   // not yet
     private static final int TEXT_DIM   = Color.parseColor("#9CA3AF");
     private static final int TEXT       = Color.parseColor("#111827");
     private static final int TODAY_RING = Color.parseColor("#111827");
@@ -61,74 +61,62 @@ public class HabitCalendarRenderer {
     // ── Month view ───────────────────────────────────────────────────────
 
     public static Bitmap month(JSONObject habit, int widthPx) {
+        // Dots, not numbered cells.
+        //
+        // The first version drew a day number in every cell. At widget size the
+        // numbers were unreadable, and to make them readable the grid had to be
+        // so large the widget looked like a web page embedded in the home
+        // screen. A month grid on a home screen answers one question — how
+        // consistent have I been — and dots answer it at a glance.
+        //
+        // Cells are square and the bitmap is sized to its content, so the
+        // ImageView does not stretch it.
         int cols = 7;
-        int pad = dp(2);
-        int cell = (widthPx - pad * (cols + 1)) / cols;
-        int labelH = dp(14);
+        int gap = dp(3);
+        int cell = (widthPx - gap * (cols - 1)) / cols;
         int rows = 6;
-        int height = labelH + pad + rows * (cell + pad) + pad;
+        int height = rows * cell + (rows - 1) * gap;
 
         Bitmap bmp = Bitmap.createBitmap(widthPx, height, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(bmp);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        Paint tp = new Paint(Paint.ANTI_ALIAS_FLAG);
-        tp.setTextAlign(Paint.Align.CENTER);
 
         Set<String> done = doneDays(habit);
-
-        // Weekday initials. Monday-first, matching the app's calendars.
-        String[] initials = {"M", "T", "W", "T", "F", "S", "S"};
-        tp.setColor(TEXT_DIM);
-        tp.setTextSize(dp(9));
-        for (int i = 0; i < 7; i++) {
-            float cx = pad + i * (cell + pad) + cell / 2f;
-            cv.drawText(initials[i], cx, labelH - dp(3), tp);
-        }
 
         Calendar cal = Calendar.getInstance();
         Calendar today = Calendar.getInstance();
         cal.set(Calendar.DAY_OF_MONTH, 1);
-        int month = cal.get(Calendar.MONTH);
 
         // Calendar.DAY_OF_WEEK has SUNDAY=1; convert to Monday-first 0..6.
         int firstCol = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7;
         int daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+        float radius = cell * 0.28f;
 
-        tp.setTextSize(dp(9));
         for (int day = 1; day <= daysInMonth; day++) {
             int idx = firstCol + day - 1;
             int r = idx / 7, c = idx % 7;
-            float x = pad + c * (cell + pad);
-            float y = labelH + pad + r * (cell + pad);
+            float x = c * (cell + gap);
+            float y = r * (cell + gap);
 
             cal.set(Calendar.DAY_OF_MONTH, day);
             boolean isDone = done.contains(key(cal));
             boolean target = isTargetDay(habit, cal);
-            boolean isToday = cal.get(Calendar.MONTH) == today.get(Calendar.MONTH)
-                    && cal.get(Calendar.DAY_OF_MONTH) == today.get(Calendar.DAY_OF_MONTH)
+            boolean isToday = cal.get(Calendar.DAY_OF_MONTH) == today.get(Calendar.DAY_OF_MONTH)
+                    && cal.get(Calendar.MONTH) == today.get(Calendar.MONTH)
                     && cal.get(Calendar.YEAR) == today.get(Calendar.YEAR);
             boolean future = cal.after(today) && !isToday;
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(isDone ? DONE : (!target || future ? OFF_TARGET : EMPTY));
-            cv.drawRoundRect(x, y, x + cell, y + cell, dp(4), dp(4), p);
+            p.setColor(isDone ? DONE : (future ? FUTURE : (!target ? OFF_TARGET : EMPTY)));
+            cv.drawRoundRect(x, y, x + cell, y + cell, radius, radius, p);
 
-            if (isToday) {
+            if (isToday && !isDone) {
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(dp(1.5f));
                 p.setColor(TODAY_RING);
                 float in = dp(0.75f);
-                cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, dp(4), dp(4), p);
+                cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, radius, radius, p);
             }
-
-            tp.setColor(isDone ? Color.WHITE : (target && !future ? TEXT : TEXT_DIM));
-            // Vertical centring: baseline sits half a text height below centre.
-            Rect b = new Rect();
-            String s = String.valueOf(day);
-            tp.getTextBounds(s, 0, s.length(), b);
-            cv.drawText(s, x + cell / 2f, y + cell / 2f + b.height() / 2f, tp);
-
-            cal.set(Calendar.MONTH, month);   // guard against month rollover
         }
 
         return bmp;
@@ -137,11 +125,13 @@ public class HabitCalendarRenderer {
     // ── Week view ────────────────────────────────────────────────────────
 
     public static Bitmap week(JSONObject habit, int widthPx) {
+        // Seven days gets enough room for a weekday letter, unlike the month
+        // grid. Sized to content so the ImageView never scales it up.
         int cols = 7;
         int pad = dp(4);
-        int cell = (widthPx - pad * (cols + 1)) / cols;
-        int labelH = dp(14);
-        int height = labelH + pad + cell + pad;
+        int cell = (widthPx - pad * (cols - 1)) / cols;
+        int labelH = dp(13);
+        int height = labelH + dp(3) + cell;
 
         Bitmap bmp = Bitmap.createBitmap(widthPx, height, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(bmp);
@@ -160,8 +150,8 @@ public class HabitCalendarRenderer {
         String[] initials = {"M", "T", "W", "T", "F", "S", "S"};
 
         for (int i = 0; i < 7; i++) {
-            float x = pad + i * (cell + pad);
-            float y = labelH + pad;
+            float x = i * (cell + pad);
+            float y = labelH + dp(3);
 
             boolean isDone = done.contains(key(cur));
             boolean target = isTargetDay(habit, cur);
@@ -171,18 +161,19 @@ public class HabitCalendarRenderer {
 
             tp.setColor(isToday ? TEXT : TEXT_DIM);
             tp.setTextSize(dp(9));
-            cv.drawText(initials[i], x + cell / 2f, labelH - dp(3), tp);
+            cv.drawText(initials[i], x + cell / 2f, labelH - dp(2), tp);
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(isDone ? DONE : (!target || future ? OFF_TARGET : EMPTY));
-            cv.drawRoundRect(x, y, x + cell, y + cell, dp(8), dp(8), p);
+            p.setColor(isDone ? DONE : (future ? FUTURE : (!target ? OFF_TARGET : EMPTY)));
+            float rad = cell * 0.3f;
+            cv.drawRoundRect(x, y, x + cell, y + cell, rad, rad, p);
 
-            if (isToday) {
+            if (isToday && !isDone) {
                 p.setStyle(Paint.Style.STROKE);
-                p.setStrokeWidth(dp(2));
+                p.setStrokeWidth(dp(1.5f));
                 p.setColor(TODAY_RING);
-                float in = dp(1);
-                cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, dp(8), dp(8), p);
+                float in = dp(0.75f);
+                cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, rad, rad, p);
             }
 
             if (isDone) {
@@ -194,13 +185,6 @@ public class HabitCalendarRenderer {
                 float cx = x + cell / 2f, cy = y + cell / 2f, u = cell / 6f;
                 cv.drawLine(cx - u, cy, cx - u / 3f, cy + u, p);
                 cv.drawLine(cx - u / 3f, cy + u, cx + u, cy - u, p);
-            } else {
-                tp.setColor(target && !future ? TEXT : TEXT_DIM);
-                tp.setTextSize(dp(10));
-                Rect b = new Rect();
-                String s = String.valueOf(cur.get(Calendar.DAY_OF_MONTH));
-                tp.getTextBounds(s, 0, s.length(), b);
-                cv.drawText(s, x + cell / 2f, y + cell / 2f + b.height() / 2f, tp);
             }
 
             cur.add(Calendar.DAY_OF_MONTH, 1);

@@ -47,7 +47,7 @@ public abstract class HabitWidgetBase extends AppWidgetProvider {
         if (habit == null) {
             // Either nothing was chosen, or the habit was deleted in the app.
             views.setTextViewText(R.id.habit_name, "Tap to pick a habit");
-            views.setTextViewText(R.id.habit_sub, "");
+            views.setTextViewText(R.id.habit_sub, "Open CheckCheck first if the list is empty");
             views.setViewVisibility(R.id.habit_grid, android.view.View.GONE);
             views.setOnClickPendingIntent(R.id.habit_root, configIntent(ctx, widgetId, month));
             return views;
@@ -65,9 +65,12 @@ public abstract class HabitWidgetBase extends AppWidgetProvider {
                 streak > 0 ? sub + "  ·  " + streak + " day streak" : sub);
 
         views.setViewVisibility(R.id.habit_grid, android.view.View.VISIBLE);
+        // Drawn near the size it will actually display at. Rendering huge and
+        // letting the ImageView shrink it wastes the per-widget bitmap budget
+        // for no visual gain.
         Bitmap bmp = month
-                ? HabitCalendarRenderer.month(habit, 640)
-                : HabitCalendarRenderer.week(habit, 640);
+                ? HabitCalendarRenderer.month(habit, 320)
+                : HabitCalendarRenderer.week(habit, 380);
         views.setImageViewBitmap(R.id.habit_grid, bmp);
 
         // Tapping toggles today. Unlike the list widgets there's no collection
@@ -83,9 +86,6 @@ public abstract class HabitWidgetBase extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.habit_root, PendingIntent.getBroadcast(
                 ctx, 2000 + widgetId, tick,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-
-        views.setTextViewText(R.id.habit_hint,
-                habit.optBoolean("doneToday", false) ? "Done today · tap to undo" : "Tap to mark today");
 
         return views;
     }
