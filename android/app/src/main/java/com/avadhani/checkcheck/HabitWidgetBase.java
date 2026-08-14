@@ -57,12 +57,19 @@ public abstract class HabitWidgetBase extends AppWidgetProvider {
         views.setTextViewText(R.id.habit_name,
                 (emoji.isEmpty() ? "" : emoji + "  ") + habit.optString("name", ""));
 
-        String sub = month
-                ? new SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(new Date())
-                : "This week";
+        // The header is one line now, so the right-hand slot gets whichever is
+        // more useful: the streak if there is one, otherwise the month name.
+        // "August 2026 · 12 day streak" doesn't fit next to a habit name.
         int streak = habit.optInt("streak", 0);
-        views.setTextViewText(R.id.habit_sub,
-                streak > 0 ? sub + "  ·  " + streak + " day streak" : sub);
+        String sub;
+        if (streak > 0) {
+            sub = streak + " day streak";
+        } else {
+            sub = month
+                    ? new SimpleDateFormat("MMM", Locale.getDefault()).format(new Date())
+                    : "This week";
+        }
+        views.setTextViewText(R.id.habit_sub, sub);
 
         views.setViewVisibility(R.id.habit_grid, android.view.View.VISIBLE);
         // Drawn near the size it will actually display at. Rendering huge and

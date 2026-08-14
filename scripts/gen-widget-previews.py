@@ -116,66 +116,94 @@ for _name, _t in THEMES.items():
     row(d, 82 * S, "Water plants", "In 2d", stripe=BRAND)
     save(img, PW, PH, OUT, "preview_chores")
     
-    # ── Habit month ──────────────────────────────────────────────────────────
-    PW, PH = 160, 150
-    img, d = card(PW, PH)
-    d.ellipse([10 * S, 11 * S, 17 * S, 18 * S], fill=BRAND)
-    d.text((21 * S, 9 * S), "Floss", font=font(11 * S, True), fill=INK)
-    d.text((10 * S, 24 * S), "August 2026 · 12 day streak", font=font(8 * S), fill=DIM)
-    
-    # Size the cell from the available HEIGHT, not the width. Six rows have to fit
-    # inside the card; deriving from width overflowed the bottom edge.
-    gy = 40 * S
+    # ── Habit month ──────────────────────────────────────────────────────
+    # Mirrors HabitCalendarRenderer.month(): weekday strip, day numbers, and a
+    # row count derived from the weeks the month actually spans.
+    import calendar as _cal
+    _t = date.today()
+    first_col = _cal.monthrange(_t.year, _t.month)[0]        # Mon=0
+    ndays = _cal.monthrange(_t.year, _t.month)[1]
+    nrows = -(-(first_col + ndays) // 7)
+
+    PW = 160
+    inner = (PW - 20) * S
     gap = 3 * S
-    avail_h = (PH - 40 - 10) * S
-    cell = (avail_h - gap * 5) / 6
-    grid_w = cell * 7 + gap * 6
-    gx = ((PW * S) - grid_w) / 2
-    today_idx = 25
-    for i in range(42):
-        r, c = divmod(i, 7)
-        x, y = gx + c * (cell + gap), gy + r * (cell + gap)
-        if i > today_idx:
-            col = FUTURE
-        elif i in (4, 11, 17, 23):
-            col = EMPTY
-        elif i % 7 == 6:
-            col = OFF
-        else:
-            col = BRAND
-        d.rounded_rectangle([x, y, x + cell, y + cell], radius=cell * 0.28, fill=col)
-        if i == today_idx:
-            d.rounded_rectangle([x, y, x + cell, y + cell], radius=cell * 0.28,
-                                outline=INK, width=int(1.4 * S))
-    save(img, PW, PH, OUT, "preview_habit_month")
-    
-    # ── Habit week ───────────────────────────────────────────────────────────
-    PW, PH = 220, 70
+    cellm = (inner - gap * 6) / 7
+    cellmH = cellm * 0.84
+    labelH = cellm * 0.58
+    grid_h = labelH + nrows * cellmH + (nrows - 1) * gap
+    PH = int(round((10 + 16 + 6) + grid_h / S + 10))
+
     img, d = card(PW, PH)
-    d.ellipse([10 * S, 10 * S, 17 * S, 17 * S], fill=BRAND)
-    d.text((21 * S, 8 * S), "Floss", font=font(11 * S, True), fill=INK)
-    d.text((10 * S, 21 * S), "This week · 12 day streak", font=font(8 * S), fill=DIM)
-    
-    gx, gy = 10 * S, 36 * S
-    gap = 4 * S
-    cell = ((PW - 20) * S - gap * 6) / 7
-    initials = ["M", "T", "W", "T", "F", "S", "S"]
-    mon = date.today() - timedelta(days=date.today().weekday())
-    for i in range(7):
-        x = gx + i * (cell + gap)
-        tw = d.textlength(initials[i], font=font(8 * S))
-        d.text((x + cell / 2 - tw / 2, gy - 1 * S), initials[i], font=font(8 * S), fill=DIM)
-        y = gy + 11 * S
-        col = BRAND if i < 4 else (EMPTY if i == 4 else FUTURE)
-        d.rounded_rectangle([x, y, x + cell, y + cell], radius=cell * 0.3, fill=col)
-        if col == BRAND:
-            u = cell / 6
-            cx, cy = x + cell / 2, y + cell / 2
-            d.line([(cx - u, cy), (cx - u / 3, cy + u), (cx + u, cy - u)],
-                   fill=CARD, width=int(1.8 * S), joint="curve")
-        if i == 4:
-            d.rounded_rectangle([x, y, x + cell, y + cell], radius=cell * 0.3,
+    d.text((10 * S, 9 * S), "Floss", font=font(11 * S, True), fill=INK)
+    _streak = "12 day streak"
+    _w = d.textlength(_streak, font=font(9 * S))
+    d.text((PW * S - 10 * S - _w, 11 * S), _streak, font=font(9 * S), fill=DIM)
+
+    gx, gy = 10 * S, 32 * S
+    for i, ini in enumerate(["M", "T", "W", "T", "F", "S", "S"]):
+        tw = d.textlength(ini, font=font(cellm * 0.42))
+        d.text((gx + i * (cellm + gap) + cellm / 2 - tw / 2, gy), ini,
+               font=font(cellm * 0.42), fill=DIM)
+
+    gy += labelH
+    for day in range(1, ndays + 1):
+        idx = first_col + day - 1
+        r, c = divmod(idx, 7)
+        x, y = gx + c * (cellm + gap), gy + r * (cellmH + gap)
+        if day > _t.day:
+            col, tcol = FUTURE, DIM
+        elif day in (4, 11, 17, 23):
+            col, tcol = EMPTY, INK
+        elif idx % 7 == 6:
+            col, tcol = OFF, DIM
+        else:
+            col, tcol = BRAND, CARD
+        d.rounded_rectangle([x, y, x + cellm, y + cellmH], radius=cellm * 0.28, fill=col)
+        if day == _t.day:
+            d.rounded_rectangle([x, y, x + cellm, y + cellmH], radius=cellm * 0.28,
                                 outline=INK, width=int(1.4 * S))
+        ds = str(day)
+        tw = d.textlength(ds, font=font(cellm * 0.44))
+        d.text((x + cellm / 2 - tw / 2, y + cellmH / 2 - cellm * 0.3), ds,
+               font=font(cellm * 0.44), fill=tcol)
+    save(img, PW, PH, OUT, "preview_habit_month")
+
+    # ── Habit week ───────────────────────────────────────────────────────
+    PW = 220
+    innerw = (PW - 20) * S
+    gapw = 4 * S
+    cellw = (innerw - gapw * 6) / 7
+    labelHw = cellw * 0.5
+    PH = int(round(10 + 16 + 6 + (labelHw + cellw) / S + 10))
+
+    img, d = card(PW, PH)
+    d.text((10 * S, 8 * S), "Floss", font=font(11 * S, True), fill=INK)
+    _w = d.textlength("12 day streak", font=font(9 * S))
+    d.text((PW * S - 10 * S - _w, 10 * S), "12 day streak", font=font(9 * S), fill=DIM)
+
+    gx, gy = 10 * S, 30 * S
+    mon = _t - timedelta(days=_t.weekday())
+    for i, ini in enumerate(["M", "T", "W", "T", "F", "S", "S"]):
+        x = gx + i * (cellw + gapw)
+        tw = d.textlength(ini, font=font(cellw * 0.34))
+        d.text((x + cellw / 2 - tw / 2, gy), ini, font=font(cellw * 0.34), fill=DIM)
+        y = gy + labelHw
+        dd = mon + timedelta(days=i)
+        if dd > _t:
+            col, tcol = FUTURE, DIM
+        elif i == 4:
+            col, tcol = EMPTY, INK
+        else:
+            col, tcol = BRAND, CARD
+        d.rounded_rectangle([x, y, x + cellw, y + cellw], radius=cellw * 0.3, fill=col)
+        if dd == _t:
+            d.rounded_rectangle([x, y, x + cellw, y + cellw], radius=cellw * 0.3,
+                                outline=INK, width=int(1.4 * S))
+        ds = str(dd.day)
+        tw = d.textlength(ds, font=font(cellw * 0.4))
+        d.text((x + cellw / 2 - tw / 2, y + cellw / 2 - cellw * 0.27), ds,
+               font=font(cellw * 0.4), fill=tcol)
     save(img, PW, PH, OUT, "preview_habit_week")
     
     print("\nDone. Rebuild the app to see them in the widget picker.")
