@@ -24,6 +24,95 @@
 
         </activity>
 
+        <!-- ── Home screen widgets ─────────────────────────────────────
+             The provider must be exported: the system sends it the
+             APPWIDGET_UPDATE broadcast, and an unexported receiver never
+             receives it, so the widget silently never draws.
+
+             The action receiver is NOT exported — we only ever target it
+             with an explicit component from our own PendingIntent, and
+             leaving it open would let any app on the device tick your
+             tasks off. -->
+        <receiver
+            android:name=".TodayTasksWidget"
+            android:label="@string/widget_today_title"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info" />
+        </receiver>
+
+        <receiver
+            android:name=".ChoresWidget"
+            android:label="@string/widget_chores_title"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_chores_info" />
+        </receiver>
+
+        <receiver
+            android:name=".HabitMonthWidget"
+            android:label="@string/widget_habit_month_title"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_habit_month_info" />
+        </receiver>
+
+        <receiver
+            android:name=".HabitWeekWidget"
+            android:label="@string/widget_habit_week_title"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_habit_week_info" />
+        </receiver>
+
+        <!-- Launched by the system when a habit widget is placed. Must be
+             exported: the launcher starts it, not us. -->
+        <activity
+            android:name=".HabitWidgetConfigActivity"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".ChoresService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
+        <receiver
+            android:name=".WidgetActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.avadhani.checkcheck.WIDGET_TICK" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Supplies the list rows. BIND_REMOTEVIEWS makes it callable only
+             by the system, which is what lets the launcher scroll the list. -->
+        <service
+            android:name=".TodayTasksService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

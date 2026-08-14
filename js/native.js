@@ -160,6 +160,10 @@
       if (!st || !st.isActive) return;
       if (typeof render === 'function') { try { render(); } catch (e) {} }
       if (window.CCNotify && CCNotify.rescheduleAll) CCNotify.rescheduleAll();
+      // Coming back from the home screen is exactly when a tick made on a
+      // widget is waiting to be applied. Drain first, then push — the other
+      // order would overwrite those ticks and make them appear to bounce back.
+      if (window.CCWidget && CCWidget.available) CCWidget.drain().then(CCWidget.push);
     });
   }
 

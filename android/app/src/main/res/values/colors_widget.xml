@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget colours, light mode. The dark equivalents live in
+     values-night/colors_widget.xml and Android swaps them automatically.
+
+     Widgets sit on the user's wallpaper next to system widgets, so a
+     hardcoded white card looks like a foreign object on a dark home screen.
+     Everything the widgets draw — including the Canvas-rendered habit
+     grids — reads from here rather than from literals. -->
+<resources>
+    <color name="widget_bg">#FFFFFF</color>
+    <color name="widget_text_primary">#111827</color>
+    <color name="widget_text_secondary">#9CA3AF</color>
+    <color name="widget_accent">#6366F1</color>
+
+    <color name="widget_cell_done">#6366F1</color>
+    <color name="widget_cell_missed">#E7E9EF</color>
+    <color name="widget_cell_rest">#F1F2F6</color>
+    <color name="widget_cell_future">#F5F6FA</color>
+    <color name="widget_today_ring">#111827</color>
+
+    <color name="widget_check_outline">#D1D5DB</color>
+</resources>

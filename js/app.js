@@ -54,6 +54,9 @@ async function fsPull() {
   // web would not be scheduled on the phone until some unrelated edit happened
   // to trigger a rebuild. Safe on web: CCNotify is a no-op there.
   if (window.CCNotify && window.CCNotify.available) window.CCNotify.rescheduleAll();
+  // Same reasoning for widgets: data that arrived from another device has to
+  // be handed to them explicitly.
+  if (window.CCWidget && window.CCWidget.available) window.CCWidget.push();
 }
 // ─────────────────────────────────────────────────────────────────
 
@@ -108,10 +111,15 @@ function escHtml(str) {
    write path. Debounced, because ticking off five items shouldn't rebuild the
    schedule five times. Does nothing on the web (CCNotify is a no-op there). */
 let _notifyTimer = null;
-const NOTIFY_KEYS = ['chores', 'todos', 'tasks', 'habits'];
+const NOTIFY_KEYS = ['chores', 'todos', 'tasks', 'habits', 'projects'];
 function _notifyDirty(k) {
-  if (!window.CCNotify || !window.CCNotify.available) return;
   if (NOTIFY_KEYS.indexOf(k) === -1) return;
+
+  // Home screen widgets hold a stale copy of the data until we hand them a
+  // new one — they can't read localStorage or run this code themselves.
+  if (window.CCWidget && window.CCWidget.available) window.CCWidget.pushSoon();
+
+  if (!window.CCNotify || !window.CCNotify.available) return;
   clearTimeout(_notifyTimer);
   _notifyTimer = setTimeout(() => { CCNotify.rescheduleAll(); }, 1200);
 }

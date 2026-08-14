@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/item_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="7dp"
+    android:paddingBottom="7dp">
+
+    <!-- Priority stripe.
+         This MUST NOT be a plain <View>. RemoteViews can only inflate a fixed
+         whitelist of classes (LinearLayout, FrameLayout, TextView, ImageView,
+         Button, ProgressBar, ListView, and a handful more). A bare <View> is
+         not on that list, so the row fails to inflate and the launcher shows
+         "Loading…" forever with no error anywhere obvious.
+         ImageView is on the list and takes a background colour fine. -->
+    <ImageView
+        android:id="@+id/item_stripe"
+        android:layout_width="3dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="8dp"
+        android:contentDescription="@null" />
+
+    <ImageView
+        android:id="@+id/item_check"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="10dp"
+        android:src="@drawable/ic_widget_unchecked"
+        android:contentDescription="Toggle done" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/item_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="@color/widget_text_primary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/item_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="@color/widget_text_secondary"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+</LinearLayout>

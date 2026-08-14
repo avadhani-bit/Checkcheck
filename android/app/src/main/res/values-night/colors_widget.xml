@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark mode. Chosen to sit alongside system widgets rather than shout:
+     a near-black card like the Android calendar widget uses, brand indigo
+     kept identical so completed days stay recognisable in both modes. -->
+<resources>
+    <color name="widget_bg">#1C1C1E</color>
+    <color name="widget_text_primary">#F5F5F7</color>
+    <color name="widget_text_secondary">#8E8E93</color>
+    <color name="widget_accent">#8B8DF7</color>
+
+    <color name="widget_cell_done">#6366F1</color>
+    <color name="widget_cell_missed">#2E2E31</color>
+    <color name="widget_cell_rest">#252527</color>
+    <color name="widget_cell_future">#242426</color>
+    <color name="widget_today_ring">#F5F5F7</color>
+
+    <color name="widget_check_outline">#48484A</color>
+</resources>
