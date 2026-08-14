@@ -69,8 +69,8 @@ public abstract class HabitWidgetBase extends AppWidgetProvider {
         // letting the ImageView shrink it wastes the per-widget bitmap budget
         // for no visual gain.
         Bitmap bmp = month
-                ? HabitCalendarRenderer.month(habit, 320)
-                : HabitCalendarRenderer.week(habit, 380);
+                ? HabitCalendarRenderer.month(ctx, habit, 420)
+                : HabitCalendarRenderer.week(ctx, habit, 520);
         views.setImageViewBitmap(R.id.habit_grid, bmp);
 
         // Tapping toggles today. Unlike the list widgets there's no collection

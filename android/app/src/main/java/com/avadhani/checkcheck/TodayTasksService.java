@@ -74,7 +74,8 @@ public class TodayTasksService extends RemoteViewsService {
             // completion is shown by dimming the row and swapping the checkbox.
             row.setImageViewResource(R.id.item_check,
                     done ? R.drawable.ic_widget_checked : R.drawable.ic_widget_unchecked);
-            row.setTextColor(R.id.item_title, done ? Color.parseColor("#9CA3AF") : Color.parseColor("#111827"));
+            row.setTextColor(R.id.item_title, ctx.getColor(
+                    done ? R.color.widget_text_secondary : R.color.widget_text_primary));
 
             // Priority stripe. Colours match PRIORITIES in js/app.js.
             String priority = t.optString("priority", "");

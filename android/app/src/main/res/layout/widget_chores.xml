@@ -27,7 +27,7 @@
             android:layout_weight="1"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:textColor="#111827"
+            android:textColor="@color/widget_text_primary"
             android:text="@string/widget_chores_title" />
 
         <TextView
@@ -35,7 +35,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="11sp"
-            android:textColor="#6366F1"
+            android:textColor="@color/widget_accent"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -55,7 +55,7 @@
         android:layout_weight="1"
         android:gravity="center"
         android:textSize="13sp"
-        android:textColor="#9CA3AF"
+        android:textColor="@color/widget_text_secondary"
         android:text="@string/widget_chores_empty" />
 
 </LinearLayout>

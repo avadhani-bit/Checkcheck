@@ -1,10 +1,10 @@
 package com.avadhani.checkcheck;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Rect;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -28,13 +28,25 @@ import java.util.Set;
  */
 public class HabitCalendarRenderer {
 
-    private static final int DONE       = Color.parseColor("#6366F1");
-    private static final int EMPTY      = Color.parseColor("#E7E9EF");   // missed
-    private static final int OFF_TARGET = Color.parseColor("#F1F2F6");   // rest day
-    private static final int FUTURE     = Color.parseColor("#F5F6FA");   // not yet
-    private static final int TEXT_DIM   = Color.parseColor("#9CA3AF");
-    private static final int TEXT       = Color.parseColor("#111827");
-    private static final int TODAY_RING = Color.parseColor("#111827");
+    /**
+     * Colours come from resources rather than constants so the grids follow
+     * light/dark mode. Resolved per call because the widget can be rebuilt
+     * after the user switches theme, and a cached palette would keep the
+     * old one until the app process restarted.
+     */
+    private static class Palette {
+        final int done, missed, rest, future, ring, textDim, text;
+
+        Palette(Context ctx) {
+            done    = ctx.getColor(R.color.widget_cell_done);
+            missed  = ctx.getColor(R.color.widget_cell_missed);
+            rest    = ctx.getColor(R.color.widget_cell_rest);
+            future  = ctx.getColor(R.color.widget_cell_future);
+            ring    = ctx.getColor(R.color.widget_today_ring);
+            textDim = ctx.getColor(R.color.widget_text_secondary);
+            text    = ctx.getColor(R.color.widget_text_primary);
+        }
+    }
 
     /** Days the habit was completed, as yyyy-MM-dd, taken from the snapshot. */
     private static Set<String> doneDays(JSONObject habit) {
@@ -60,7 +72,8 @@ public class HabitCalendarRenderer {
 
     // ── Month view ───────────────────────────────────────────────────────
 
-    public static Bitmap month(JSONObject habit, int widthPx) {
+    public static Bitmap month(Context ctx, JSONObject habit, int widthPx) {
+        Palette pal = new Palette(ctx);
         // Dots, not numbered cells.
         //
         // The first version drew a day number in every cell. At widget size the
@@ -107,13 +120,13 @@ public class HabitCalendarRenderer {
             boolean future = cal.after(today) && !isToday;
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(isDone ? DONE : (future ? FUTURE : (!target ? OFF_TARGET : EMPTY)));
+            p.setColor(isDone ? pal.done : (future ? pal.future : (!target ? pal.rest : pal.missed)));
             cv.drawRoundRect(x, y, x + cell, y + cell, radius, radius, p);
 
             if (isToday && !isDone) {
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(dp(1.5f));
-                p.setColor(TODAY_RING);
+                p.setColor(pal.ring);
                 float in = dp(0.75f);
                 cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, radius, radius, p);
             }
@@ -124,7 +137,8 @@ public class HabitCalendarRenderer {
 
     // ── Week view ────────────────────────────────────────────────────────
 
-    public static Bitmap week(JSONObject habit, int widthPx) {
+    public static Bitmap week(Context ctx, JSONObject habit, int widthPx) {
+        Palette pal = new Palette(ctx);
         // Seven days gets enough room for a weekday letter, unlike the month
         // grid. Sized to content so the ImageView never scales it up.
         int cols = 7;
@@ -159,19 +173,19 @@ public class HabitCalendarRenderer {
                     && cur.get(Calendar.YEAR) == today.get(Calendar.YEAR);
             boolean future = cur.after(today) && !isToday;
 
-            tp.setColor(isToday ? TEXT : TEXT_DIM);
+            tp.setColor(isToday ? pal.text : pal.textDim);
             tp.setTextSize(dp(9));
             cv.drawText(initials[i], x + cell / 2f, labelH - dp(2), tp);
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(isDone ? DONE : (future ? FUTURE : (!target ? OFF_TARGET : EMPTY)));
+            p.setColor(isDone ? pal.done : (future ? pal.future : (!target ? pal.rest : pal.missed)));
             float rad = cell * 0.3f;
             cv.drawRoundRect(x, y, x + cell, y + cell, rad, rad, p);
 
             if (isToday && !isDone) {
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(dp(1.5f));
-                p.setColor(TODAY_RING);
+                p.setColor(pal.ring);
                 float in = dp(0.75f);
                 cv.drawRoundRect(x + in, y + in, x + cell - in, y + cell - in, rad, rad, p);
             }

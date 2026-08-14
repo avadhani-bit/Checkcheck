@@ -1,29 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Compact by design.
+<!-- Grid fills the card.
 
-     The first version gave the ImageView layout_weight="1" with
-     scaleType="fitCenter", which told it to fill all remaining height and
-     scale the bitmap up to match. On a 4-row-tall widget that blew a small
-     calendar up to poster size and made it read like a web page dropped on
-     the home screen.
+     History of two opposite mistakes here, both worth knowing:
 
-     Now: the grid keeps its natural size (wrap_content + centerInside, which
-     only ever scales DOWN), and the widget asks for little space. -->
+     1. layout_weight="1" + fitCenter  → the view took ALL remaining height
+        and scaled the bitmap up to match. Enormous.
+     2. wrap_content + centerInside    → centerInside only ever scales DOWN,
+        so a 320px bitmap sat at 320px in a wider view: a small grid marooned
+        in a big empty card.
+
+     What works: match_parent width, wrap_content height, adjustViewBounds
+     and fitCenter. The view scales the bitmap to the available WIDTH and
+     derives its height from the aspect ratio, so the grid fills the card
+     edge to edge and the card ends where the grid ends. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/habit_root"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_bg"
-    android:padding="10dp">
+    android:padding="14dp">
 
     <TextView
         android:id="@+id/habit_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="12sp"
+        android:textSize="13sp"
         android:textStyle="bold"
-        android:textColor="#111827"
+        android:textColor="@color/widget_text_primary"
         android:maxLines="1"
         android:ellipsize="end" />
 
@@ -32,8 +36,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="10sp"
-        android:textColor="#9CA3AF"
-        android:paddingBottom="7dp"
+        android:textColor="@color/widget_text_secondary"
+        android:paddingBottom="10dp"
         android:maxLines="1"
         android:ellipsize="end" />
 
@@ -42,7 +46,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:adjustViewBounds="true"
-        android:scaleType="centerInside"
+        android:scaleType="fitCenter"
         android:contentDescription="@null" />
 
 </LinearLayout>

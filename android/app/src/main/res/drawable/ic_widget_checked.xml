@@ -6,7 +6,7 @@
     android:viewportHeight="24">
     <path
         android:pathData="M5,3h14a2,2 0 0 1 2,2v14a2,2 0 0 1 -2,2H5a2,2 0 0 1 -2,-2V5a2,2 0 0 1 2,-2z"
-        android:fillColor="#6366F1" />
+        android:fillColor="@color/widget_cell_done" />
     <path
         android:pathData="M7.5,12.2l3,3l6,-6.6"
         android:strokeWidth="2.2"
