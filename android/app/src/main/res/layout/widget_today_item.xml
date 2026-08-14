@@ -8,11 +8,19 @@
     android:paddingTop="7dp"
     android:paddingBottom="7dp">
 
-    <View
+    <!-- Priority stripe.
+         This MUST NOT be a plain <View>. RemoteViews can only inflate a fixed
+         whitelist of classes (LinearLayout, FrameLayout, TextView, ImageView,
+         Button, ProgressBar, ListView, and a handful more). A bare <View> is
+         not on that list, so the row fails to inflate and the launcher shows
+         "Loading…" forever with no error anywhere obvious.
+         ImageView is on the list and takes a background colour fine. -->
+    <ImageView
         android:id="@+id/item_stripe"
         android:layout_width="3dp"
         android:layout_height="20dp"
-        android:layout_marginEnd="8dp" />
+        android:layout_marginEnd="8dp"
+        android:contentDescription="@null" />
 
     <ImageView
         android:id="@+id/item_check"
