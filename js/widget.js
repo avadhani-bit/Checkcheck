@@ -99,7 +99,122 @@
              (rank[b.priority] === undefined ? 3 : rank[b.priority]);
     });
 
-    return { today: rows, generatedAt: Date.now() };
+    return {
+      today: rows,
+      chores: buildChores(),
+      habits: buildHabits(),
+      generatedAt: Date.now(),
+    };
+  }
+
+  /* ── Chores ──────────────────────────────────────────────────────
+     A chore has no done flag, it has a clock: lastDone + intervalDays.
+     The widget shows what's due plus what's coming, so it doubles as a
+     "what's my week look like" glance rather than only a nag list.
+     Status strings mirror the colours used on the app's chore cards. */
+  var CHORE_SOON_DAYS = 3;
+
+  function buildChores() {
+    var now = Date.now();
+    var out = [];
+
+    DB.get('chores').forEach(function (c) {
+      if (!c.intervalDays) return;
+
+      var status, meta, due, daysLeft;
+
+      if (!c.lastDone) {
+        status = 'due';
+        meta = 'Never done';
+        due = true;
+        daysLeft = -0.5;                     // sorts just after true overdues
+      } else {
+        var daysSince = (now - c.lastDone) / 86400000;
+        daysLeft = c.intervalDays - daysSince;
+        if (daysLeft <= -1) {
+          status = 'overdue';
+          meta = Math.round(-daysLeft) + 'd overdue';
+          due = true;
+        } else if (daysLeft < 1) {
+          status = 'due';
+          meta = 'Due today';
+          due = true;
+        } else if (daysLeft <= CHORE_SOON_DAYS) {
+          status = 'soon';
+          meta = 'In ' + Math.ceil(daysLeft) + 'd';
+          due = false;
+        } else {
+          status = 'ok';
+          meta = 'In ' + Math.ceil(daysLeft) + 'd';
+          due = false;
+        }
+      }
+
+      out.push({
+        id: c.id,
+        title: c.title,
+        emoji: c.emoji || '',
+        status: status,
+        meta: meta,
+        due: due,
+        daysLeft: daysLeft,
+      });
+    });
+
+    // Most overdue first, so the top of the widget is always what matters.
+    out.sort(function (a, b) { return a.daysLeft - b.daysLeft; });
+    return out;
+  }
+
+  /* ── Habits ──────────────────────────────────────────────────────
+     The calendar widgets need the completed days as plain date strings.
+     Sending the raw history timestamps would make the Java side redo
+     the timezone conversion, and the two would disagree around midnight.
+     Only the last ~60 days are sent: enough for a month grid with a
+     little slack, and it keeps the snapshot small. */
+  function buildHabits() {
+    var cutoff = Date.now() - 70 * 86400000;
+
+    return DB.get('habits').map(function (h) {
+      var days = [];
+      (h.history || []).forEach(function (ts) {
+        if (ts < cutoff) return;
+        var d = new Date(ts);
+        days.push(ldStr(d));                 // local date, same as the app uses
+      });
+
+      return {
+        id: h.id,
+        name: h.name,
+        emoji: h.emoji || '',
+        targetDays: typeof h.targetDays === 'string' ? h.targetDays : 'daily',
+        days: days,
+        doneToday: days.indexOf(ldStr(new Date())) !== -1,
+        streak: habitStreak(h),
+      };
+    });
+  }
+
+  /* Consecutive target days ending today (or yesterday, if today isn't done
+     yet — otherwise the streak would appear to reset every morning). */
+  function habitStreak(h) {
+    var done = {};
+    (h.history || []).forEach(function (ts) { done[ldStr(new Date(ts))] = true; });
+
+    var streak = 0;
+    var d = new Date();
+    if (!done[ldStr(d)]) d.setDate(d.getDate() - 1);
+
+    for (var i = 0; i < 400; i++) {
+      if (typeof isHabitTargetDay === 'function' && !isHabitTargetDay(h, d)) {
+        d.setDate(d.getDate() - 1);
+        continue;                            // rest days don't break a streak
+      }
+      if (!done[ldStr(d)]) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
   }
 
   var _pushTimer = null;
@@ -140,6 +255,8 @@
           try {
             if (a.kind === 'tasks') applyTaskTick(a);
             else if (a.kind === 'todos') applyTodoTick(a);
+            else if (a.kind === 'chores') applyChoreTick(a);
+            else if (a.kind === 'habits') applyHabitTick(a);
           } catch (e) {
             console.warn('[CheckCheck] could not apply widget action', a, e);
           }
@@ -182,6 +299,29 @@
     } else if (!a.done && t.done) {
       DB.update('todos', t.id, { done: false, completedAt: null });
     }
+  }
+
+  /* Chores are not idempotent the way tasks are: markChoreDone() appends to
+     history and resets the clock every time it's called, so replaying the same
+     tick twice would record two completions. The queue is only cleared after a
+     successful pass, so a replay is possible — guard with the timestamp and
+     ignore a tick that predates the chore's current lastDone. */
+  function applyChoreTick(a) {
+    var c = DB.get('chores').find(function (x) { return x.id === a.id; });
+    if (!c) return;
+    if (c.lastDone && a.ts && c.lastDone >= a.ts) return;   // already applied
+    markChoreDone(c.id);
+  }
+
+  /* toggleHabitDate is a toggle, so calling it twice undoes the first call.
+     Check the current state and only act if it differs from what was asked. */
+  function applyHabitTick(a) {
+    var h = DB.get('habits').find(function (x) { return x.id === a.id; });
+    if (!h) return;
+    var today = ldStr(new Date());
+    var isDone = (h.history || []).some(function (ts) { return ldStr(new Date(ts)) === today; });
+    if (isDone === !!a.done) return;                        // already in the wanted state
+    toggleHabitDate(h.id, today);
   }
 
   window.CCWidget = {

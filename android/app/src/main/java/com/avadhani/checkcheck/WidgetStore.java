@@ -86,6 +86,69 @@ public class WidgetStore {
         }
     }
 
+    /**
+     * A chore has no done flag — it has a clock. Ticking it means "just did
+     * this", so optimistically show it as satisfied and clear the due state.
+     * The app recomputes the real status from lastDone on next launch.
+     */
+    public static void markChoreDoneInSnapshot(Context ctx, String id) {
+        try {
+            JSONObject snap = getSnapshot(ctx);
+            JSONArray arr = snap.optJSONArray("chores");
+            if (arr == null) return;
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject c = arr.optJSONObject(i);
+                if (c != null && id.equals(c.optString("id"))) {
+                    c.put("due", false);
+                    c.put("status", "ok");
+                    c.put("meta", "Just done");
+                    break;
+                }
+            }
+            snap.put("chores", arr);
+            setSnapshotRaw(ctx, snap.toString());
+        } catch (JSONException e) {
+            // Next app launch replaces the snapshot wholesale.
+        }
+    }
+
+    /** Add or remove today from a habit's done days, so the grid updates at once. */
+    public static void markHabitTodayInSnapshot(Context ctx, String id, boolean done) {
+        try {
+            JSONObject snap = getSnapshot(ctx);
+            JSONArray habits = snap.optJSONArray("habits");
+            if (habits == null) return;
+
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            String today = String.format(java.util.Locale.US, "%04d-%02d-%02d",
+                    cal.get(java.util.Calendar.YEAR),
+                    cal.get(java.util.Calendar.MONTH) + 1,
+                    cal.get(java.util.Calendar.DAY_OF_MONTH));
+
+            for (int i = 0; i < habits.length(); i++) {
+                JSONObject h = habits.optJSONObject(i);
+                if (h == null || !id.equals(h.optString("id"))) continue;
+
+                JSONArray days = h.optJSONArray("days");
+                if (days == null) days = new JSONArray();
+                JSONArray next = new JSONArray();
+                for (int d = 0; d < days.length(); d++) {
+                    String v = days.optString(d);
+                    if (!today.equals(v)) next.put(v);
+                }
+                if (done) next.put(today);
+
+                h.put("days", next);
+                h.put("doneToday", done);
+                break;
+            }
+            snap.put("habits", habits);
+            setSnapshotRaw(ctx, snap.toString());
+        } catch (JSONException e) {
+            // Same reasoning as above.
+        }
+    }
+
     // ── Action queue ─────────────────────────────────────────────────────
 
     /**
@@ -132,6 +195,10 @@ public class WidgetStore {
     public static void refreshAll(Context ctx) {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         refreshOne(ctx, mgr, TodayTasksWidget.class, R.id.widget_list);
+        refreshOne(ctx, mgr, ChoresWidget.class, R.id.widget_list);
+        // The habit widgets draw a bitmap rather than a collection, so they
+        // need a rebuild rather than a data-changed notification.
+        HabitWidgetBase.refreshAll(ctx);
     }
 
     static void refreshOne(Context ctx, AppWidgetManager mgr, Class<?> cls, int listViewId) {

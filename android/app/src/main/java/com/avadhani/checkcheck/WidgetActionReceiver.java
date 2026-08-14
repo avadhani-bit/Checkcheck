@@ -41,7 +41,20 @@ public class WidgetActionReceiver extends BroadcastReceiver {
         if (kind == null || kind.isEmpty()) kind = "tasks";
 
         WidgetStore.queueAction(ctx, kind, id, done);
-        WidgetStore.markDoneInSnapshot(ctx, "today", id, done);
-        TodayTasksWidget.refresh(ctx);
+
+        // Patch the snapshot so the home screen reflects the tap immediately,
+        // then redraw. The app reconciles for real on next launch.
+        if ("chores".equals(kind)) {
+            // A chore is never permanently done — ticking it resets its clock.
+            // Optimistically show it as satisfied until the app recalculates.
+            WidgetStore.markChoreDoneInSnapshot(ctx, id);
+            ChoresWidget.refresh(ctx);
+        } else if ("habits".equals(kind)) {
+            WidgetStore.markHabitTodayInSnapshot(ctx, id, done);
+            HabitWidgetBase.refreshAll(ctx);
+        } else {
+            WidgetStore.markDoneInSnapshot(ctx, "today", id, done);
+            TodayTasksWidget.refresh(ctx);
+        }
     }
 }

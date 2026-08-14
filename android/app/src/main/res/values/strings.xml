@@ -6,4 +6,11 @@
     <string name="custom_url_scheme">com.avadhani.checkcheck</string>
     <string name="widget_today_title">Today</string>
     <string name="widget_today_description">Tasks and to-dos due today. Tap one to tick it off.</string>
+    <string name="widget_chores_title">Chores</string>
+    <string name="widget_chores_empty">No chores yet</string>
+    <string name="widget_chores_description">Chores that are due, and what is coming up. Tap one to mark it done.</string>
+    <string name="widget_habit_month_title">Habit month</string>
+    <string name="widget_habit_month_description">A month grid for one habit. Tap to mark today.</string>
+    <string name="widget_habit_week_title">Habit week</string>
+    <string name="widget_habit_week_description">This week for one habit. Tap to mark today.</string>
 </resources>

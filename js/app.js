@@ -111,7 +111,7 @@ function escHtml(str) {
    write path. Debounced, because ticking off five items shouldn't rebuild the
    schedule five times. Does nothing on the web (CCNotify is a no-op there). */
 let _notifyTimer = null;
-const NOTIFY_KEYS = ['chores', 'todos', 'tasks', 'habits'];
+const NOTIFY_KEYS = ['chores', 'todos', 'tasks', 'habits', 'projects'];
 function _notifyDirty(k) {
   if (NOTIFY_KEYS.indexOf(k) === -1) return;
 
