@@ -4,4 +4,6 @@
     <string name="title_activity_main">CheckCheck</string>
     <string name="package_name">com.avadhani.checkcheck</string>
     <string name="custom_url_scheme">com.avadhani.checkcheck</string>
+    <string name="widget_today_title">Today</string>
+    <string name="widget_today_description">Tasks and to-dos due today. Tap one to tick it off.</string>
 </resources>
