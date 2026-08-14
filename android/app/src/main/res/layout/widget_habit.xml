@@ -1,58 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tight by design. Everything here is fighting for vertical space:
+<!-- The card must not be the root view.
 
-     - padding 14dp -> 10dp
-     - name and streak on ONE line instead of two stacked TextViews
-     - grid height comes from the bitmap's aspect ratio via adjustViewBounds
-       + fitCenter, so the card ends where the grid ends
+     A widget host stretches the ROOT view to fill whatever cell area it
+     granted, and it usually grants more than you asked for. Put the card
+     background on the root and the card inherits that stretch — which is why
+     the grid ended halfway down with a big empty slab underneath it.
 
-     The remaining lever is the declared widget size in widget_habit_*_info.xml.
-     A widget host stretches the root view to whatever cell area it was given,
-     so layout_height on this root cannot shrink the card below that — the
-     declared minHeight and targetCellHeight are what actually decide it. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/habit_root"
+     So: the root is a transparent frame that absorbs the stretch, and the
+     visible card is a wrap_content child pinned to the top. Any surplus the
+     host hands over is now invisible wallpaper instead of empty card.
+
+     This is the lever that actually controls card height. The declared
+     minHeight / targetCellHeight in widget_habit_*_info.xml only decide how
+     much area gets granted in the first place. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@drawable/widget_bg"
-    android:padding="10dp">
+    android:layout_height="match_parent">
 
     <LinearLayout
+        android:id="@+id/habit_root"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:baselineAligned="true"
-        android:paddingBottom="6dp">
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="@drawable/widget_bg"
+        android:padding="10dp">
 
-        <TextView
-            android:id="@+id/habit_name"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textColor="@color/widget_text_primary"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:orientation="horizontal"
+            android:baselineAligned="true"
+            android:paddingBottom="6dp">
 
-        <TextView
-            android:id="@+id/habit_sub"
-            android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/habit_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/widget_text_primary"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/habit_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:textSize="10sp"
+                android:textColor="@color/widget_text_secondary"
+                android:maxLines="1"
+                android:ellipsize="end" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/habit_grid"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:textSize="10sp"
-            android:textColor="@color/widget_text_secondary"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null" />
+
     </LinearLayout>
 
-    <ImageView
-        android:id="@+id/habit_grid"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
-        android:contentDescription="@null" />
-
-</LinearLayout>
+</FrameLayout>
