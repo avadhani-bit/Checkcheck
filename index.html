@@ -139,6 +139,8 @@
 
   <!-- Native layers. Both load AFTER app.js because they call into it.
        Both no-op in a browser, so the PWA is unchanged. -->
+  <!-- Shared shopping lists. Web and native both use this. -->
+  <script src="js/share.js"></script>
   <script src="js/notify.js"></script>
   <script src="js/widget.js"></script>
   <script src="js/native.js"></script>
