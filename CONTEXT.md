@@ -5,6 +5,42 @@ Last updated: 2026-08-12 · **Phases 0–4 complete. The app works on device.**
 
 ---
 
+## 0a. Rollback points
+
+`v1.0` is the last known-good state before shared shopping lists — the code
+that was actually running on the phone, not just tested. If a newer feature
+goes wrong and you want out:
+
+```bash
+git checkout v1.0          # look at it / build from it
+npm install && npm run sync
+cd android && ./gradlew installDebug
+git checkout main          # go back to current work
+```
+
+`git checkout v1.0` does not delete anything. It moves your working files to
+that state; `git checkout main` returns you to the present.
+
+To undo a *specific* merged change rather than jumping back wholesale, prefer
+`git revert <commit>` — it makes a new commit undoing that one and keeps the
+history honest.
+
+**Tag the next known-good state before starting anything risky.** The pattern:
+
+```bash
+git tag -a v1.1 -m "what works in this one"
+git push origin v1.1
+```
+
+Tags are cheap and unpushed work is not protected by them, so tag *after*
+merging and *before* the next big change.
+
+**Note the tag only restores source.** Getting that build back onto the phone
+means rebuilding (a few minutes). If you want an instant revert, keep a copy
+of the built `.apk` somewhere outside the repo.
+
+---
+
 ## 0. Start here
 
 **Where things stand:** CheckCheck is installed and working on the phone as a debug

@@ -1,4 +1,4 @@
-/* CheckCheck — Service Worker v16
+/* CheckCheck — Service Worker v17
    ----------------------------------------------------------------
    BUMP THIS VERSION whenever you change any precached file, or
    returning visitors keep the old copy. The number is the only thing
@@ -7,7 +7,7 @@
    Note: this file is only used by the WEB app. Inside the Android APK
    registration is skipped (see index.html) — the assets are already
    local there, and a second cache layer would only serve stale code. */
-const CACHE = 'checkcheck-v16';
+const CACHE = 'checkcheck-v17';
 const PRECACHE = [
   './index.html',
   './css/app.css',
@@ -15,6 +15,7 @@ const PRECACHE = [
   './js/platform.js',
   './js/app.js',
   './js/nlp.js',
+  './js/share.js',
   './js/notify.js',
   './js/widget.js',
   './js/native.js',
