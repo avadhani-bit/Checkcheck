@@ -2,15 +2,16 @@
   "name": "checkcheck",
   "version": "1.0.0",
   "private": true,
-  "description": "CheckCheck — personal productivity PWA, wrapped as an Android app with Capacitor.",
+  "description": "CheckCheck \u2014 personal productivity PWA, wrapped as an Android app with Capacitor.",
   "type": "module",
   "scripts": {
-    "build:www": "node scripts/build-www.mjs",
+    "build:www": "node scripts/stamp-sw.mjs && node scripts/build-www.mjs",
     "vendor:firebase": "node -e \"['app','auth','firestore'].forEach(m=>require('fs').copyFileSync('node_modules/firebase/firebase-'+m+'-compat.js','vendor/firebase/firebase-'+m+'-compat.js'))\" && node -e \"console.log('vendored firebase '+require('firebase/package.json').version)\"",
     "sync": "npm run build:www && npx cap sync android",
     "open:android": "npx cap open android",
     "android": "npm run sync && npx cap open android",
-    "run:android": "npm run sync && npx cap run android"
+    "run:android": "npm run sync && npx cap run android",
+    "stamp:sw": "node scripts/stamp-sw.mjs"
   },
   "keywords": [],
   "author": "Avadhani",
