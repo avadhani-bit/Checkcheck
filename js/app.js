@@ -1891,34 +1891,51 @@ function choreListRow(c) {
   `;
 }
 
+/* Swipe left on a chore row to reveal Done / Edit / Delete.
+   ----------------------------------------------------------------
+   The panel slides OVER the row; the row's own content never moves.
+
+   The first version translated the row content left instead. That
+   chopped the start of the chore's title off the left edge of the
+   card ("Clean bathroom" showing as "room"), and left the row's own
+   "Done" button stranded in the middle of the row next to a second
+   "Done" in the panel. Sliding the panel over the top fixes both at
+   once: nothing is clipped, and the panel covers the row's buttons
+   rather than competing with them. */
 function initChoreSwipe(rowEl, id) {
-  const inner = rowEl.querySelector('.chore-row-inner');
   const actions = rowEl.querySelector('.chore-swipe-actions');
-  if (!inner || !actions) return;
+  if (!actions) return;
+
+  const WIDTH = 130;          // must match .chore-swipe-actions width in CSS
+  const THRESHOLD = 55;       // how far you must drag to commit
   let startX = 0, startY = 0, dragging = false, revealed = false;
-  const THRESHOLD = 55;
+
+  function setOpen(open) {
+    revealed = open;
+    actions.style.transition = 'transform .18s ease';
+    actions.style.transform = 'translateX(' + (open ? 0 : WIDTH) + 'px)';
+    actions.style.pointerEvents = open ? 'auto' : 'none';
+    actions.classList.toggle('visible', open);
+    rowEl.classList.toggle('swiped', open);
+  }
 
   rowEl.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     dragging = true;
+    actions.style.transition = 'none';   // follow the finger without lag
   }, { passive: true });
 
   rowEl.addEventListener('touchmove', e => {
     if (!dragging) return;
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
+    // Vertical intent wins, so swiping the page doesn't open panels.
     if (Math.abs(dy) > Math.abs(dx) && !revealed) { dragging = false; return; }
-    if (dx < 0) {
-      const clamp = Math.max(-130, dx);
-      inner.style.transform = 'translateX(' + clamp + 'px)';
-      const pct = Math.min(1, Math.abs(clamp) / THRESHOLD);
-      actions.style.opacity = pct;
-      actions.style.pointerEvents = 'none';
-    } else if (revealed && dx > 0) {
-      const clamp = Math.min(0, -130 + dx);
-      inner.style.transform = 'translateX(' + clamp + 'px)';
-    }
+
+    const base = revealed ? 0 : WIDTH;
+    const next = Math.min(WIDTH, Math.max(0, base + dx));
+    actions.style.transform = 'translateX(' + next + 'px)';
     e.preventDefault();
   }, { passive: false });
 
@@ -1926,34 +1943,25 @@ function initChoreSwipe(rowEl, id) {
     if (!dragging) return;
     dragging = false;
     const dx = e.changedTouches[0].clientX - startX;
+
     if (!revealed && dx < -THRESHOLD) {
-      inner.style.transform = 'translateX(-130px)';
-      actions.style.opacity = '1';
-      actions.style.pointerEvents = 'auto';
-      actions.classList.add('visible');
-      revealed = true;
-      // close on next tap elsewhere
+      setOpen(true);
+      // Close when the next touch lands anywhere else. Delayed so this
+      // same gesture's trailing events don't immediately close it.
       setTimeout(() => {
         document.addEventListener('touchstart', function close(ev) {
-          if (!rowEl.contains(ev.target)) {
-            inner.style.transform = '';
-            actions.style.opacity = '0';
-            actions.classList.remove('visible');
-            revealed = false;
-          }
+          if (!rowEl.contains(ev.target)) setOpen(false);
           document.removeEventListener('touchstart', close);
         }, { once: true });
       }, 50);
     } else if (revealed && dx > THRESHOLD / 2) {
-      inner.style.transform = '';
-      actions.style.opacity = '0';
-      actions.classList.remove('visible');
-      revealed = false;
+      setOpen(false);
     } else {
-      inner.style.transform = revealed ? 'translateX(-130px)' : '';
-      actions.style.opacity = revealed ? '1' : '0';
+      setOpen(revealed);        // snap back to whichever state we were in
     }
   });
+
+  setOpen(false);               // start closed, parked off the right edge
 }
 
 function markChoreDone(id) {

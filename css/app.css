@@ -2331,7 +2331,10 @@ body.dark .task-tag.tag-recur {
   /* Chore/habit labels readable */
   .chore-status { font-size: .73rem; }
 
-  /* Chore swipe panel: absolute behind the row, revealed by JS translateX */
+  /* Chore swipe panel: sits off the right edge and slides OVER the row.
+     Not behind it — see initChoreSwipe(). Sliding the row content left
+     instead clipped the title off the left edge of the card and left the
+     row's own Done button stranded beside the panel's. */
   .chore-swipe-actions {
     display: flex;
     align-items: stretch;
@@ -2340,10 +2343,11 @@ body.dark .task-tag.tag-recur {
     top: 0;
     bottom: 0;
     width: 130px;
-    opacity: 0;
+    transform: translateX(130px);
     pointer-events: none;
     border-radius: 0;
     overflow: hidden;
+    z-index: 2;
   }
   .chore-swipe-done,
   .chore-swipe-edit,
@@ -2358,6 +2362,9 @@ body.dark .task-tag.tag-recur {
     border: none;
     transition: filter .1s;
   }
+  .chore-actions { transition: opacity .14s ease; }
+  .chore-row.swiped .chore-actions { opacity: 0; }
+
   .chore-swipe-done   { background: #10B981; color: #fff; }
   .chore-swipe-edit   { background: #6366F1; color: #fff; font-size: 1rem; }
   .chore-swipe-delete { background: #EF4444; color: #fff; font-size: 1rem; }
