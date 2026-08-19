@@ -1883,42 +1883,72 @@ function choreListRow(c) {
         </div>
       </div>
       <div class="chore-swipe-actions" id="swipe-actions-${c.id}">
-        <div class="chore-swipe-done" data-chore-done="${c.id}">✓ Done</div>
-        <div class="chore-swipe-edit" data-chore-edit="${c.id}">✏️</div>
-        <div class="chore-swipe-delete" data-chore-delete="${c.id}">🗑</div>
+        <div class="chore-swipe-done" data-chore-done="${c.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Done</span>
+        </div>
+        <div class="chore-swipe-edit" data-chore-edit="${c.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span>Edit</span>
+        </div>
+        <div class="chore-swipe-delete" data-chore-delete="${c.id}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          <span>Delete</span>
+        </div>
       </div>
     </div>
   `;
 }
 
+/* Swipe left on a chore row to reveal Done / Edit / Delete.
+   ----------------------------------------------------------------
+   The panel slides OVER the row; the row's own content never moves.
+
+   The first version translated the row content left instead. That
+   chopped the start of the chore's title off the left edge of the
+   card ("Clean bathroom" showing as "room"), and left the row's own
+   "Done" button stranded in the middle of the row next to a second
+   "Done" in the panel. Sliding the panel over the top fixes both at
+   once: nothing is clipped, and the panel covers the row's buttons
+   rather than competing with them. */
 function initChoreSwipe(rowEl, id) {
-  const inner = rowEl.querySelector('.chore-row-inner');
   const actions = rowEl.querySelector('.chore-swipe-actions');
-  if (!inner || !actions) return;
+  if (!actions) return;
+
+  // Measured, not hardcoded — the panel's width lives in CSS and the two
+  // silently drifting apart is exactly how a swipe ends up stopping short
+  // of fully open. Falls back only if it can't be measured (desktop, where
+  // the panel is display:none and this gesture is unused anyway).
+  const WIDTH = actions.offsetWidth || 180;
+  const THRESHOLD = 55;       // how far you must drag to commit
   let startX = 0, startY = 0, dragging = false, revealed = false;
-  const THRESHOLD = 55;
+
+  function setOpen(open) {
+    revealed = open;
+    actions.style.transition = 'transform .18s ease';
+    actions.style.transform = 'translateX(' + (open ? 0 : WIDTH) + 'px)';
+    actions.style.pointerEvents = open ? 'auto' : 'none';
+    actions.classList.toggle('visible', open);
+    rowEl.classList.toggle('swiped', open);
+  }
 
   rowEl.addEventListener('touchstart', e => {
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     dragging = true;
+    actions.style.transition = 'none';   // follow the finger without lag
   }, { passive: true });
 
   rowEl.addEventListener('touchmove', e => {
     if (!dragging) return;
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
+    // Vertical intent wins, so swiping the page doesn't open panels.
     if (Math.abs(dy) > Math.abs(dx) && !revealed) { dragging = false; return; }
-    if (dx < 0) {
-      const clamp = Math.max(-130, dx);
-      inner.style.transform = 'translateX(' + clamp + 'px)';
-      const pct = Math.min(1, Math.abs(clamp) / THRESHOLD);
-      actions.style.opacity = pct;
-      actions.style.pointerEvents = 'none';
-    } else if (revealed && dx > 0) {
-      const clamp = Math.min(0, -130 + dx);
-      inner.style.transform = 'translateX(' + clamp + 'px)';
-    }
+
+    const base = revealed ? 0 : WIDTH;
+    const next = Math.min(WIDTH, Math.max(0, base + dx));
+    actions.style.transform = 'translateX(' + next + 'px)';
     e.preventDefault();
   }, { passive: false });
 
@@ -1926,34 +1956,25 @@ function initChoreSwipe(rowEl, id) {
     if (!dragging) return;
     dragging = false;
     const dx = e.changedTouches[0].clientX - startX;
+
     if (!revealed && dx < -THRESHOLD) {
-      inner.style.transform = 'translateX(-130px)';
-      actions.style.opacity = '1';
-      actions.style.pointerEvents = 'auto';
-      actions.classList.add('visible');
-      revealed = true;
-      // close on next tap elsewhere
+      setOpen(true);
+      // Close when the next touch lands anywhere else. Delayed so this
+      // same gesture's trailing events don't immediately close it.
       setTimeout(() => {
         document.addEventListener('touchstart', function close(ev) {
-          if (!rowEl.contains(ev.target)) {
-            inner.style.transform = '';
-            actions.style.opacity = '0';
-            actions.classList.remove('visible');
-            revealed = false;
-          }
+          if (!rowEl.contains(ev.target)) setOpen(false);
           document.removeEventListener('touchstart', close);
         }, { once: true });
       }, 50);
     } else if (revealed && dx > THRESHOLD / 2) {
-      inner.style.transform = '';
-      actions.style.opacity = '0';
-      actions.classList.remove('visible');
-      revealed = false;
+      setOpen(false);
     } else {
-      inner.style.transform = revealed ? 'translateX(-130px)' : '';
-      actions.style.opacity = revealed ? '1' : '0';
+      setOpen(revealed);        // snap back to whichever state we were in
     }
   });
+
+  setOpen(false);               // start closed, parked off the right edge
 }
 
 function markChoreDone(id) {
