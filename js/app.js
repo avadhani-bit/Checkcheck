@@ -3710,6 +3710,11 @@ function openChoreModal(existing) {
     '<label class="form-label">Icon</label>' +
     '<div class="color-picker" style="flex-wrap:wrap;gap:8px">' + emojiDots + '</div>' +
     '</div>' +
+    // Delete lives here to match the habit modal. It already existed as a
+    // button on the chore row and as a swipe action — but both are hidden on
+    // mobile (.chore-delete-btn is display:none under 768px), so on a phone
+    // the only route was a swipe gesture with nothing to suggest it existed.
+    (isEdit ? '<div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border-light)"><button id="delete-chore" style="font-size:.82rem;color:var(--red);font-weight:500;padding:4px 0">Delete this chore</button></div>' : '') +
     '<div class="form-actions">' +
     '<button class="btn-secondary" id="modal-cancel">Cancel</button>' +
     '<button class="btn-primary" id="modal-save">' + (isEdit ? 'Save changes' : 'Add chore') + '</button>' +
@@ -3727,6 +3732,19 @@ function openChoreModal(existing) {
   });
 
   document.getElementById('modal-cancel').onclick = closeModal;
+
+  if (isEdit) {
+    document.getElementById('delete-chore').onclick = () => {
+      if (!confirm('Delete "' + existing.title + '"? Its history will be lost.')) return;
+      DB.remove('chores', existing.id);
+      closeModal();
+      // Clear the detail view if we were looking at this chore, or the app
+      // renders a page for something that no longer exists.
+      if (state.activeChore === existing.id) state.activeChore = null;
+      renderPersonal();
+    };
+  }
+
   document.getElementById('modal-save').onclick = () => {
     const title        = document.getElementById('chore-name').value.trim();
     const rawNum       = parseInt(document.getElementById('chore-interval').value) || 7;
