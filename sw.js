@@ -1,13 +1,22 @@
-/* CheckCheck — Service Worker v16
+/* CheckCheck — Service Worker v18
    ----------------------------------------------------------------
    BUMP THIS VERSION whenever you change any precached file, or
    returning visitors keep the old copy. The number is the only thing
    that tells the browser this worker is different.
 
+   A hard reload does NOT defeat this. The service worker answers the
+   request before the network is consulted, so the only things that
+   help are a new CACHE value here, or unregistering the worker by
+   hand in DevTools.
+
+   Skipped v17 deliberately: it shipped briefly during the shared-list
+   work before that was reverted, so some browsers may still hold a
+   cache under that name. Version numbers only ever go up.
+
    Note: this file is only used by the WEB app. Inside the Android APK
    registration is skipped (see index.html) — the assets are already
    local there, and a second cache layer would only serve stale code. */
-const CACHE = 'checkcheck-v16';
+const CACHE = 'checkcheck-9f2d74b135';
 const PRECACHE = [
   './index.html',
   './css/app.css',
