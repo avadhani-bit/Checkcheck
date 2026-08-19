@@ -2342,8 +2342,11 @@ body.dark .task-tag.tag-recur {
     right: 0;
     top: 0;
     bottom: 0;
-    width: 130px;
-    transform: translateX(130px);
+    /* 3 x 60px. The old 130px gave each action ~43px, under the 48dp
+       minimum touch target and visibly cramped. JS reads this width off
+       the element rather than hardcoding it, so the two can't drift. */
+    width: 180px;
+    transform: translateX(180px);
     pointer-events: none;
     border-radius: 0;
     overflow: hidden;
@@ -2353,21 +2356,39 @@ body.dark .task-tag.tag-recur {
   .chore-swipe-edit,
   .chore-swipe-delete {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: .82rem;
+    gap: 4px;
+    font-size: .68rem;
     font-weight: 600;
+    letter-spacing: .01em;
     cursor: pointer;
     flex: 1;
     border: none;
-    transition: filter .1s;
+    transition: filter .12s;
+    -webkit-tap-highlight-color: transparent;
   }
+  /* Icons rather than emoji: emoji render differently on every device and
+     never match the stroke weight of the rest of the app's icons. */
+  .chore-swipe-done svg,
+  .chore-swipe-edit svg,
+  .chore-swipe-delete svg { width: 19px; height: 19px; }
+
+  .chore-swipe-done:active,
+  .chore-swipe-edit:active,
+  .chore-swipe-delete:active { filter: brightness(.88); }
+
   .chore-actions { transition: opacity .14s ease; }
   .chore-row.swiped .chore-actions { opacity: 0; }
 
   .chore-swipe-done   { background: #10B981; color: #fff; }
-  .chore-swipe-edit   { background: #6366F1; color: #fff; font-size: 1rem; }
-  .chore-swipe-delete { background: #EF4444; color: #fff; font-size: 1rem; }
+  .chore-swipe-edit   { background: #6366F1; color: #fff; }
+  .chore-swipe-delete { background: #EF4444; color: #fff; }
+
+  /* The row's own Done button was noticeably smaller than the habit
+     equivalent on the same screen. */
+  .chore-done-btn { padding: 8px 16px; font-size: .82rem; }
 
   /* Header: tighten on mobile so avatar stays visible */
   .header-inner { gap: 8px; padding: 0 12px; }
