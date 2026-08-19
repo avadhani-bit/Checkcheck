@@ -23,10 +23,6 @@ const SYNC_KEYS = ['projects','tasks','chores','todos','shopping','habits'];
 
 function fsPush(k, data) {
   if (!_fbUser) return;
-  // A shared shopping list is stored as one document per item. Pushing the
-  // array copy as well would give it a second, competing source of truth —
-  // and that array is exactly the thing that loses other people's edits.
-  if (k === 'shopping' && window.CCShare && CCShare.isShared()) return;
   _fbStore.collection('users').doc(_fbUser.uid).collection('data').doc(k)
     .set({ items: data, updatedAt: Date.now() })
     .catch(function(e) { console.warn('Firestore write failed:', k, e); });
@@ -37,7 +33,6 @@ async function fsPull() {
   var fsHasData = false;
   for (const _k of SYNC_KEYS) {
     try {
-      if (_k === 'shopping' && window.CCShare && CCShare.isShared()) continue;  // live listener owns it
       const snap = await _fbStore.collection('users').doc(_fbUser.uid).collection('data').doc(_k).get();
       if (snap.exists && Array.isArray(snap.data().items) && snap.data().items.length > 0) {
         localStorage.setItem('cc_' + _k, JSON.stringify(snap.data().items));
@@ -1685,126 +1680,6 @@ function todoRow(t) {
 
 // ─── SHOPPING ─────────────────────────────────────────────────────
 
-/* ─── SHARED SHOPPING LIST UI ─────────────────────────────────────
-   The engine is in js/share.js. This is only the screen. */
-
-function sharedBadge() {
-  if (!window.CCShare || !CCShare.isShared()) return '';
-  const n = CCShare.members().length;
-  return ` <span style="font-size:.68rem;font-weight:600;color:var(--accent);vertical-align:middle">· shared with ${n - 1}</span>`;
-}
-
-function openShareModal() {
-  openModal('Share shopping list', '<div id="share-body"></div>');
-  renderShareBody();
-}
-
-function renderShareBody() {
-  const body = document.getElementById('share-body');
-  if (!body) return;
-
-  if (!_fbUser) {
-    body.innerHTML = '<div class="reminder-hint">Sign in to share a list.</div>';
-    return;
-  }
-
-  if (!CCShare.isShared()) {
-    body.innerHTML = `
-      <div class="reminder-hint" style="margin-bottom:14px">
-        Share this list with someone and you'll both see the same items, updating live.
-        Your other lists stay private.
-      </div>
-      <button type="button" class="btn-primary" id="share-start" style="width:100%;padding:10px">Start sharing</button>
-      <div class="form-group" style="margin-top:20px">
-        <label class="form-label">Or join someone else's list</label>
-        <div style="display:flex;gap:6px">
-          <input class="form-input" id="share-code-input" placeholder="ABCD2345" maxlength="8"
-            style="flex:1;text-transform:uppercase;letter-spacing:.08em;font-weight:600" />
-          <button type="button" class="btn-secondary" id="share-join" style="padding:8px 14px">Join</button>
-        </div>
-        <div class="reminder-hint">Your current items get merged in — nothing is lost.</div>
-      </div>
-      <div id="share-msg"></div>`;
-
-    document.getElementById('share-start').onclick = () => {
-      const btn = document.getElementById('share-start');
-      btn.disabled = true; btn.textContent = 'Setting up…';
-      CCShare.startSharing()
-        .then(() => renderShareBody())
-        .catch(e => shareError(e, btn, 'Start sharing'));
-    };
-    document.getElementById('share-join').onclick = () => {
-      const btn = document.getElementById('share-join');
-      btn.disabled = true; btn.textContent = '…';
-      CCShare.join(document.getElementById('share-code-input').value)
-        .then(() => { renderShareBody(); renderShoppingPanel(); })
-        .catch(e => shareError(e, btn, 'Join'));
-    };
-    return;
-  }
-
-  // ── Already sharing ──
-  const owner = CCShare.isOwner();
-  const code = CCShare.code();
-  const people = CCShare.members();
-
-  body.innerHTML = `
-    ${owner ? `
-      <div class="form-group">
-        <label class="form-label">Share code</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <div style="flex:1;font-size:1.4rem;font-weight:700;letter-spacing:.14em;text-align:center;
-                      padding:12px;border-radius:12px;background:var(--accent-light);color:var(--accent)">${escHtml(code || '')}</div>
-          <button type="button" class="btn-secondary" id="share-copy" style="padding:10px 12px">Copy</button>
-        </div>
-        <div class="reminder-hint">They enter this in their own CheckCheck, under Shopping → Share.</div>
-      </div>` : ''}
-
-    <div class="form-group">
-      <label class="form-label">People (${people.length})</label>
-      ${people.map(p => `
-        <div class="reminder-row" style="margin-bottom:6px">
-          <span style="flex:1">
-            <span style="display:block;font-weight:600;font-size:.85rem">${escHtml(p.name || p.email || 'Someone')}</span>
-            <span style="display:block;font-size:.72rem;color:var(--text-3)">${escHtml(p.email || '')} · ${p.role}</span>
-          </span>
-        </div>`).join('')}
-    </div>
-
-    <button type="button" class="btn-secondary" id="share-stop" style="width:100%;padding:10px;color:var(--red);border-color:var(--red)">
-      ${owner ? 'Stop sharing' : 'Leave this list'}
-    </button>
-    <div class="reminder-hint">
-      ${owner
-        ? 'The list stops being shared and everyone keeps their own copy of the items.'
-        : 'You keep a copy of the current items. The others keep the shared list.'}
-    </div>
-    <div id="share-msg"></div>`;
-
-  if (owner) {
-    document.getElementById('share-copy').onclick = () => {
-      navigator.clipboard?.writeText(code);
-      const b = document.getElementById('share-copy');
-      b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy'; }, 1500);
-    };
-  }
-  document.getElementById('share-stop').onclick = () => {
-    if (!confirm(owner ? 'Stop sharing this list?' : 'Leave this list?')) return;
-    const btn = document.getElementById('share-stop');
-    btn.disabled = true; btn.textContent = '…';
-    CCShare.stopSharing()
-      .then(() => { renderShareBody(); renderShoppingPanel(); })
-      .catch(e => shareError(e, btn, owner ? 'Stop sharing' : 'Leave this list'));
-  };
-}
-
-function shareError(e, btn, label) {
-  console.warn('[CheckCheck] share action failed:', e);
-  const msg = document.getElementById('share-msg');
-  if (msg) msg.innerHTML = `<div class="reminder-hint" style="color:var(--red)">${escHtml(e.message || 'Something went wrong')}</div>`;
-  if (btn) { btn.disabled = false; btn.textContent = label; }
-}
-
 function renderShoppingPanel() {
   const items  = DB.get('shopping');
   const active = items.filter(i => !i.done);
@@ -1814,8 +1689,7 @@ function renderShoppingPanel() {
   panel.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Shopping list${sharedBadge()}</span>
-        <button class="clear-done-btn" id="share-shopping">${window.CCShare && CCShare.isShared() ? 'Sharing' : 'Share'}</button>
+        <span class="card-title">Shopping list</span>
         ${done.length > 0 ? `<button class="clear-done-btn" id="clear-shopping">Clear checked</button>` : ''}
       </div>
       <div class="task-list">
@@ -1830,23 +1704,11 @@ function renderShoppingPanel() {
     </div>
   `;
 
-  /* Every shopping write goes through CCShare first. When the list is
-     shared it writes a single item document to Firestore and returns true;
-     the live listener then mirrors the result back into local storage and
-     re-renders. When it's not shared it returns false and we take the
-     ordinary local path, byte for byte as before.
-
-     Reads are untouched — DB.get('shopping') works either way, which is
-     why search, backup and the widget snapshot needed no changes. */
-  const shared = () => window.CCShare && CCShare.isShared();
-
   const addShop = () => {
     const input = document.getElementById('shop-add-input');
     const title = input.value.trim();
     if (!title) return;
-    if (!CCShare.addItem(title)) {
-      DB.add('shopping', { id: uid(), title, done: false, createdAt: Date.now() });
-    }
+    DB.add('shopping', { id: uid(), title, done: false, createdAt: Date.now() });
     input.value = '';
     renderShoppingPanel();
     requestAnimationFrame(() => document.getElementById('shop-add-input')?.focus());
@@ -1854,9 +1716,7 @@ function renderShoppingPanel() {
   document.getElementById('shop-add-btn').onclick = addShop;
   document.getElementById('shop-add-input').addEventListener('keydown', e => { if (e.key === 'Enter') addShop(); });
   document.getElementById('clear-shopping')?.addEventListener('click', () => {
-    if (!CCShare.clearDone()) {
-      DB.set('shopping', DB.get('shopping').filter(i => !i.done));
-    }
+    DB.set('shopping', DB.get('shopping').filter(i => !i.done));
     renderShoppingPanel();
   });
 
@@ -1864,22 +1724,13 @@ function renderShoppingPanel() {
     el.onclick = () => {
       const i = DB.get('shopping').find(x => x.id === el.dataset.shopCheck);
       if (!i) return;
-      if (!CCShare.toggleItem(i.id, !i.done)) {
-        DB.update('shopping', i.id, { done: !i.done });
-      }
+      DB.update('shopping', i.id, { done: !i.done });
       renderShoppingPanel();
     };
   });
   document.querySelectorAll('[data-shop-delete]').forEach(el => {
-    el.onclick = () => {
-      if (!CCShare.removeItem(el.dataset.shopDelete)) {
-        DB.remove('shopping', el.dataset.shopDelete);
-      }
-      renderShoppingPanel();
-    };
+    el.onclick = () => { DB.remove('shopping', el.dataset.shopDelete); renderShoppingPanel(); };
   });
-
-  document.getElementById('share-shopping').onclick = () => openShareModal();
 }
 
 function shoppingRow(item) {
@@ -4166,7 +4017,6 @@ function init() {
       } catch (e) {
         console.warn('[CheckCheck] native signOut failed:', e);
       }
-      try { if (window.CCShare) CCShare.detach(); } catch (e) { console.warn(e); }
       try { await _fbAuth.signOut(); } catch (e) { console.warn(e); }
       window.location.reload();
     };
@@ -4199,11 +4049,6 @@ function init() {
       }
     }
     if (userBtn) userBtn.style.display = '';
-
-    // Pick up a shared shopping list, if this account is in one. Must run
-    // BEFORE fsPull so that fsPull knows to skip the shopping array — the
-    // live listener owns that collection while it's shared.
-    if (window.CCShare) { try { await CCShare.attach(); } catch (e) { console.warn(e); } }
 
     // Pull latest data from Firestore before rendering
     await fsPull();

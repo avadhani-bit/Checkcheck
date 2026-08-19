@@ -7,9 +7,8 @@ Last updated: 2026-08-12 · **Phases 0–4 complete. The app works on device.**
 
 ## 0a. Rollback points
 
-`v1.0` is the last known-good state before shared shopping lists — the code
-that was actually running on the phone, not just tested. If a newer feature
-goes wrong and you want out:
+`v1.0` marks the last state that was actually running on the phone and known
+good. If something later goes wrong and you want out:
 
 ```bash
 git checkout v1.0          # look at it / build from it
@@ -21,23 +20,31 @@ git checkout main          # go back to current work
 `git checkout v1.0` does not delete anything. It moves your working files to
 that state; `git checkout main` returns you to the present.
 
-To undo a *specific* merged change rather than jumping back wholesale, prefer
-`git revert <commit>` — it makes a new commit undoing that one and keeps the
-history honest.
+To undo one merged change rather than jumping back wholesale, use
+`git revert <commit>` — it creates a new commit undoing that one and keeps the
+history honest. That's how the shared shopping list work was removed.
 
-**Tag the next known-good state before starting anything risky.** The pattern:
+**Tag the next known-good state before starting anything risky:**
 
 ```bash
 git tag -a v1.1 -m "what works in this one"
 git push origin v1.1
 ```
 
-Tags are cheap and unpushed work is not protected by them, so tag *after*
-merging and *before* the next big change.
+**A tag only restores source.** Getting that build back onto the phone means
+rebuilding (a few minutes). For an instant revert, keep a copy of the built
+`.apk` somewhere outside the repo.
 
-**Note the tag only restores source.** Getting that build back onto the phone
-means rebuilding (a few minutes). If you want an instant revert, keep a copy
-of the built `.apk` somewhere outside the repo.
+### Shared shopping lists — removed, not lost
+
+Built and then reverted, deliberately. The code lives in git history and can be
+brought back with `git revert` of the revert, or cherry-picked.
+
+It was never active: the Firestore rules it needs were never published, and the
+migration was lazy, so no data ever moved. If you pick it up again, the two
+things to know are that it needs those rules published in the Firebase Console
+first, and that it should be tested with a second account before being trusted
+with real data.
 
 ---
 
